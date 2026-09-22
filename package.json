@@ -1,0 +1,16 @@
+{
+  "name": "idef0-bpmn-interview",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Система построения моделей IDEF0 и BPMN по текстовому интервью с владельцем процесса",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w server && npm run build -w web",
+    "start": "npm run start -w server"
+  }
+}
