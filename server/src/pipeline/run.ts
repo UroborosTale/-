@@ -36,7 +36,7 @@ export async function runPipeline(
 
   model.gaps = detectGaps(model);
   const validation = validateModel(model);
-  const bpmn = generateBpmn(model);
+  const bpmn = await generateBpmn(model);
   const idef0 = generateIdef0(model);
 
   return { model, validation, bpmnXml: bpmn.xml, idef0, providerName: provider.name };

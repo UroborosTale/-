@@ -101,10 +101,10 @@ exportRouter.get("/sessions/:id/export/statements.md", (req, res) => {
   res.type("text/markdown; charset=utf-8").send(buildStatementsMarkdown(session));
 });
 
-exportRouter.get("/sessions/:id/export/album.html", (req, res) => {
+exportRouter.get("/sessions/:id/export/album.html", async (req, res) => {
   const session = requireReady(req, res);
   if (!session) return;
-  res.type("text/html; charset=utf-8").send(buildAlbumHtml(session));
+  res.type("text/html; charset=utf-8").send(await buildAlbumHtml(session));
 });
 
 exportRouter.get("/sessions/:id/export/album.pdf", async (req, res) => {
@@ -115,7 +115,7 @@ exportRouter.get("/sessions/:id/export/album.pdf", async (req, res) => {
     const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || "/opt/pw-browsers/chromium";
     const browser = await chromium.launch({ executablePath, args: ["--no-sandbox"] }).catch(() => chromium.launch());
     const page = await browser.newPage();
-    await page.setContent(buildAlbumHtml(session), { waitUntil: "networkidle" });
+    await page.setContent(await buildAlbumHtml(session), { waitUntil: "networkidle" });
     const pdf = await page.pdf({ format: "A4", printBackground: true, margin: { top: "16mm", bottom: "16mm", left: "14mm", right: "14mm" } });
     await browser.close();
     attachment(res, `${session.meta.processName}.album.pdf`);

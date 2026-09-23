@@ -3,10 +3,6 @@ import { getSession, updateSession } from "../repo.js";
 import { fragmentText } from "../pipeline/fragment.js";
 import { runPipeline } from "../pipeline/run.js";
 import { INTERVIEW_OPENING_QUESTION, isInterviewComplete, mergeManualGaps, selectNextQuestion } from "../pipeline/interviewEngine.js";
-import { detectGaps } from "../pipeline/gaps.js";
-import { validateModel } from "../pipeline/validate.js";
-import { generateBpmn } from "../pipeline/bpmn.js";
-import { generateIdef0 } from "../pipeline/idef0.js";
 import { logAudit } from "../db.js";
 import type { ChatMessage, Fragment } from "../types/model.js";
 

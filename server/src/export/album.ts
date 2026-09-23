@@ -1,33 +1,62 @@
 import type { SessionRecord } from "../repo.js";
 import type { ProcessLogicModel } from "../types/model.js";
-import { layoutLayered, type LayoutNodeIn, type LayoutEdgeIn } from "../pipeline/layout.js";
+import { layoutLayered, orthogonalWaypoints, type LayoutNodeIn, type LayoutEdgeIn } from "../pipeline/layout.js";
 
 function esc(s: string | null | undefined): string {
   if (!s) return "";
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function renderBpmnSchematic(model: ProcessLogicModel): string {
-  const nodeById = new Map(model.nodes.map((n) => [n.id, n] as const));
+async function renderBpmnSchematic(model: ProcessLogicModel): Promise<string> {
   const roleIndex = new Map(model.roles.map((r, i) => [r.id, i] as const));
-  const layoutNodes: LayoutNodeIn[] = model.nodes.map((n) => ({
-    id: n.id,
-    width: n.type === "gateway" ? 40 : 120,
-    height: n.type === "gateway" ? 40 : 60,
-    laneIndex: n.role_id ? roleIndex.get(n.role_id) ?? model.roles.length : model.roles.length,
-  }));
+  const SIZE: Record<string, { w: number; h: number }> = {
+    task: { w: 100, h: 80 },
+    subprocess: { w: 110, h: 80 },
+    gateway: { w: 50, h: 50 },
+    event: { w: 36, h: 36 },
+  };
+  const layoutNodes: LayoutNodeIn[] = model.nodes.map((n) => {
+    const s = SIZE[n.type] ?? SIZE.task;
+    return {
+      id: n.id,
+      width: s.w,
+      height: s.h,
+      laneIndex: n.role_id ? roleIndex.get(n.role_id) ?? model.roles.length : model.roles.length,
+    };
+  });
   const layoutEdges: LayoutEdgeIn[] = model.flows.map((f) => ({ id: f.id, from: f.from, to: f.to }));
   const laneCount = model.roles.length + 1;
-  const layout = layoutLayered(layoutNodes, layoutEdges, laneCount);
+  const layout = await layoutLayered(layoutNodes, layoutEdges, laneCount);
 
   const boxes = model.nodes
     .map((n) => {
       const b = layout.boxes.get(n.id);
       if (!b) return "";
       const fill = n.type === "gateway" ? "#fef3c7" : n.type === "event" ? "#dcfce7" : "#eef2ff";
-      const rx = n.type === "event" ? Math.min(b.width, b.height) / 2 : n.type === "gateway" ? 4 : 6;
+      if (n.type === "event") {
+        const r = b.width / 2;
+        const cx = b.x + r,
+          cy = b.y + r;
+        return `<g>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#1f2937" stroke-width="${n.subtype === "end" ? 2.4 : 1.4}" />
+          <text x="${cx}" y="${b.y + b.height + 11}" text-anchor="middle" font-size="9" font-family="Arial, sans-serif">${esc(
+          n.name.length > 20 ? n.name.slice(0, 18) + "…" : n.name
+        )}</text>
+        </g>`;
+      }
+      if (n.type === "gateway") {
+        const cx = b.x + b.width / 2,
+          cy = b.y + b.height / 2,
+          r = b.width / 2;
+        return `<g>
+          <polygon points="${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}" fill="${fill}" stroke="#b45309" stroke-width="1.4" />
+          <text x="${cx}" y="${b.y + b.height + 11}" text-anchor="middle" font-size="9" font-family="Arial, sans-serif">${esc(
+          n.name.length > 20 ? n.name.slice(0, 18) + "…" : n.name
+        )}</text>
+        </g>`;
+      }
       return `<g>
-        <rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" rx="${rx}" fill="${fill}" stroke="#1f2937" stroke-width="1.2" />
+        <rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" rx="8" fill="${fill}" stroke="#1f2937" stroke-width="1.4" />
         <text x="${b.x + b.width / 2}" y="${b.y + b.height / 2 + 4}" text-anchor="middle" font-size="10" font-family="Arial, sans-serif">${esc(
         n.name.length > 22 ? n.name.slice(0, 20) + "…" : n.name
       )}</text>
@@ -40,11 +69,9 @@ function renderBpmnSchematic(model: ProcessLogicModel): string {
       const from = layout.boxes.get(f.from);
       const to = layout.boxes.get(f.to);
       if (!from || !to) return "";
-      const x1 = from.x + from.width;
-      const y1 = from.y + from.height / 2;
-      const x2 = to.x;
-      const y2 = to.y + to.height / 2;
-      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)" />`;
+      const points = orthogonalWaypoints(from, to);
+      const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${p[0]},${p[1]}`).join(" ");
+      return `<path d="${d}" fill="none" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)" />`;
     })
     .join("\n");
 
@@ -65,10 +92,11 @@ function renderBpmnSchematic(model: ProcessLogicModel): string {
 }
 
 /** PDF/HTML-альбом (ФТ-10.2): диаграммы, глоссарий, список допущений. */
-export function buildAlbumHtml(session: SessionRecord): string {
+export async function buildAlbumHtml(session: SessionRecord): Promise<string> {
   const m = session.model!;
   const hypotheses = m.nodes.filter((n) => n.status === "hypothesis");
   const openGaps = m.gaps.filter((g) => g.status === "open");
+  const bpmnSchematic = await renderBpmnSchematic(m);
 
   return `<!DOCTYPE html>
 <html lang="ru">
@@ -106,7 +134,7 @@ export function buildAlbumHtml(session: SessionRecord): string {
 
   <div class="page-break"></div>
   <h2>Схема процесса (BPMN, упрощённая схема для печати — полная диаграмма в .bpmn файле)</h2>
-  <div class="diagram">${renderBpmnSchematic(m)}</div>
+  <div class="diagram">${bpmnSchematic}</div>
 
   <h2>Глоссарий ролей</h2>
   <table><thead><tr><th>Роль</th><th>Тип</th></tr></thead><tbody>

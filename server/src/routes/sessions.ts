@@ -100,13 +100,13 @@ sessionsRouter.put("/sessions/:id/model", (req, res) => {
 });
 
 /** Пересборка BPMN/IDEF0 из текущей модели после ручной правки (ФТ-8.2). */
-sessionsRouter.post("/sessions/:id/rebuild-diagrams", (req, res) => {
+sessionsRouter.post("/sessions/:id/rebuild-diagrams", async (req, res) => {
   const session = getSession(req.params.id);
   if (!session || !session.model) {
     res.status(404).json({ error: "no model" });
     return;
   }
-  const bpmn = generateBpmn(session.model);
+  const bpmn = await generateBpmn(session.model);
   const idef0 = generateIdef0(session.model);
   const updated = updateSession(req.params.id, { bpmnXml: bpmn.xml, idef0, diagramsStale: false });
   res.json(updated);

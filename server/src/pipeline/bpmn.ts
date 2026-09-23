@@ -1,5 +1,5 @@
 import type { ProcessLogicModel, ProcessNode } from "../types/model.js";
-import { layoutLayered, type LayoutNodeIn, type LayoutEdgeIn } from "./layout.js";
+import { layoutLayered, orthogonalWaypoints, type LayoutNodeIn, type LayoutEdgeIn } from "./layout.js";
 
 export interface BpmnGenerationResult {
   xml: string;
@@ -67,9 +67,12 @@ function eventInfo(subtype?: string): { tag: string; def?: string } {
   }
 }
 
+// Размеры фигур и раскладка приведены к соглашениям OMG BPMN DI, применяемым
+// референсными редакторами (bpmn.io/Camunda Modeler): 100×80 задачи,
+// 50×50 шлюзы, 36×36 события.
 const NODE_SIZE: Record<string, { w: number; h: number }> = {
-  task: { w: 130, h: 80 },
-  subprocess: { w: 150, h: 90 },
+  task: { w: 100, h: 80 },
+  subprocess: { w: 110, h: 80 },
   gateway: { w: 50, h: 50 },
   event: { w: 36, h: 36 },
 };
@@ -77,9 +80,10 @@ const NODE_SIZE: Record<string, { w: number; h: number }> = {
 /**
  * Детерминированная генерация BPMN 2.0 XML (ФТ-6) из промежуточной модели.
  * Пул + дорожки по ролям, задачи с типами, шлюзы, события, объекты данных,
- * авто-раскладка слева направо. Совместим с bpmn.io / Camunda Modeler.
+ * авто-раскладка слева направо через ElkJS (layered/Sugiyama, ФТ-6.2) с
+ * ортогональной маршрутизацией стрелок. Совместим с bpmn.io / Camunda Modeler.
  */
-export function generateBpmn(model: ProcessLogicModel): BpmnGenerationResult {
+export async function generateBpmn(model: ProcessLogicModel): Promise<BpmnGenerationResult> {
   const elementIndex: Record<string, string> = {};
   const nodeIdOf = (mid: string) => `Node_${mid}`;
 
@@ -138,7 +142,7 @@ export function generateBpmn(model: ProcessLogicModel): BpmnGenerationResult {
     ...model.flows.map((f) => ({ id: f.id, from: nodeIdOf(f.from), to: nodeIdOf(f.to) })),
     ...synthFlows.map((f) => ({ id: f.id, from: f.from, to: f.to })),
   ];
-  const layout = layoutLayered(layoutNodes, layoutEdges, Math.max(laneCount, 1));
+  const layout = await layoutLayered(layoutNodes, layoutEdges, Math.max(laneCount, 1));
 
   // --- XML: flow elements ---
   const flowElementsXml: string[] = [];
@@ -246,35 +250,23 @@ export function generateBpmn(model: ProcessLogicModel): BpmnGenerationResult {
     );
   }
 
-  // edges
+  // edges — ортогональная маршрутизация (см. пояснение в layout.ts)
   const edgesXml: string[] = [];
   for (const f of model.flows) {
     const from = layout.boxes.get(nodeIdOf(f.from));
     const to = layout.boxes.get(nodeIdOf(f.to));
     if (!from || !to) continue;
-    const x1 = from.x + from.width;
-    const y1 = from.y + from.height / 2;
-    const x2 = to.x;
-    const y2 = to.y + to.height / 2;
-    edgesXml.push(
-      `<bpmndi:BPMNEdge id="Flow_${f.id}_di" bpmnElement="Flow_${f.id}"><di:waypoint x="${Math.round(x1)}" y="${Math.round(
-        y1
-      )}" /><di:waypoint x="${Math.round(x2)}" y="${Math.round(y2)}" /></bpmndi:BPMNEdge>`
-    );
+    const points = orthogonalWaypoints(from, to);
+    const waypointsXml = points.map(([x, y]) => `<di:waypoint x="${Math.round(x)}" y="${Math.round(y)}" />`).join("");
+    edgesXml.push(`<bpmndi:BPMNEdge id="Flow_${f.id}_di" bpmnElement="Flow_${f.id}">${waypointsXml}</bpmndi:BPMNEdge>`);
   }
   for (const sf of synthFlows) {
     const from = layout.boxes.get(sf.from);
     const to = layout.boxes.get(sf.to);
     if (!from || !to) continue;
-    const x1 = from.x + from.width;
-    const y1 = from.y + from.height / 2;
-    const x2 = to.x;
-    const y2 = to.y + to.height / 2;
-    edgesXml.push(
-      `<bpmndi:BPMNEdge id="Flow_${sf.id}_di" bpmnElement="Flow_${sf.id}"><di:waypoint x="${Math.round(
-        x1
-      )}" y="${Math.round(y1)}" /><di:waypoint x="${Math.round(x2)}" y="${Math.round(y2)}" /></bpmndi:BPMNEdge>`
-    );
+    const points = orthogonalWaypoints(from, to);
+    const waypointsXml = points.map(([x, y]) => `<di:waypoint x="${Math.round(x)}" y="${Math.round(y)}" />`).join("");
+    edgesXml.push(`<bpmndi:BPMNEdge id="Flow_${sf.id}_di" bpmnElement="Flow_${sf.id}">${waypointsXml}</bpmndi:BPMNEdge>`);
   }
 
   const laneSetXml = laneCount > 0 ? `<bpmn:laneSet id="LaneSet_1">${lanesXml.join("")}</bpmn:laneSet>` : "";
