@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getSession, updateSession, editBlockReason } from "../repo.js";
 import { fragmentText, normalizeTerms, anonymizeFragments } from "../pipeline/fragment.js";
 import { parseUploadedFile } from "../pipeline/ingest.js";
-import { runPipeline } from "../pipeline/run.js";
+import { runOrchestratedPipeline } from "../pipeline/agents.js";
 import { logAudit } from "../db.js";
 import { db } from "../db.js";
 import { addVersion } from "../repo.js";
@@ -102,7 +102,7 @@ processRouter.post("/sessions/:id/run", async (req, res) => {
   }
   updateSession(req.params.id, { status: "processing" });
   try {
-    const output = await runPipeline(session.id, session.fragments, session.meta);
+    const output = await runOrchestratedPipeline(session.id, session.fragments, session.meta);
     updateSession(req.params.id, {
       model: output.model,
       validation: output.validation,
@@ -112,7 +112,7 @@ processRouter.post("/sessions/:id/run", async (req, res) => {
       diagramsStale: false,
       provider: output.providerName,
     });
-    logAudit(req.params.id, "analyst", "pipeline_run", { provider: output.providerName, nodes: output.model.nodes.length });
+    logAudit(req.params.id, "analyst", "pipeline_run", { provider: output.providerName, nodes: output.model.nodes.length, agentRunId: output.runId, iterations: output.iterations });
     const updated = addVersion(req.params.id, "Запуск конвейера извлечения");
     res.json(updated);
   } catch (e) {
@@ -165,7 +165,7 @@ processRouter.post("/sessions/:id/answers", async (req, res) => {
   updateSession(req.params.id, { fragments, qa, status: "processing" });
 
   try {
-    const output = await runPipeline(session.id, fragments, session.meta);
+    const output = await runOrchestratedPipeline(session.id, fragments, session.meta);
     updateSession(req.params.id, {
       model: output.model,
       validation: output.validation,

@@ -3,7 +3,9 @@ import { getSession, updateSession } from "../repo.js";
 import { buildRegulation } from "../pipeline/regulation.js";
 import { buildRegulationHtml, buildRegulationDocx } from "../export/regulation.js";
 import { diffModels } from "../pipeline/diff.js";
+import { logAgentStep } from "../pipeline/agents.js";
 import { logAudit } from "../db.js";
+import { nanoid } from "nanoid";
 
 export const regulationRouter = Router();
 
@@ -81,6 +83,7 @@ regulationRouter.post("/sessions/:id/regulation/mark-generated", (req, res) => {
   const seq = session.versions[session.versions.length - 1]?.seq ?? null;
   updateSession(req.params.id, { regulationSnapshotSeq: seq });
   logAudit(req.params.id, "analyst", "regulation_generated", { seq });
+  logAgentStep(req.params.id, `run_${nanoid(10)}`, 1, "documentalist", `Сгенерирован регламент по версии seq=${seq}`);
   res.json({ regulationSnapshotSeq: seq });
 });
 

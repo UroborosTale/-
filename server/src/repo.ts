@@ -11,6 +11,7 @@ export interface SessionMeta {
   modelType: "AS-IS" | "TO-BE";
   decompositionDepth: number;
   notations: ("IDEF0" | "BPMN")[];
+  confidential?: boolean; // ФТ-М9.3.2: обрабатывается только локальным провайдером; ФТ-М9.1.5: исключается из корпуса
 }
 
 export interface VersionSnapshot {
@@ -267,6 +268,20 @@ export function addVersion(id: string, note: string, opts?: { major?: boolean; a
     id
   );
   logAudit(id, opts?.author ?? "system", opts?.major ? "version_approved" : "version_snapshot", { version, note });
+
+  // ФТ-М9.1.1/9.1.5: утверждённая пара "текст — модель" пополняет корпус для
+  // few-shot подбора и регрессионной оценки; конфиденциальные процессы исключаются.
+  if (opts?.major && !current.meta.confidential) {
+    db.prepare(`INSERT INTO corpus_entries (id, session_id, process_name, raw_text, model_json, created_at) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      `corpus_${nanoid(10)}`,
+      id,
+      current.meta.processName,
+      current.rawText,
+      JSON.stringify(stampedModel),
+      new Date().toISOString()
+    );
+  }
+
   return getSession(id)!;
 }
 

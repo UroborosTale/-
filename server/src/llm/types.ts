@@ -88,6 +88,7 @@ export interface LLMProvider {
   readonly name: string;
   extractChunk(
     fragments: LLMFragmentInput[],
-    context: { processName: string; modelType: "AS-IS" | "TO-BE" }
+    context: { processName: string; modelType: "AS-IS" | "TO-BE"; fewShotContext?: string },
+    opts?: { model?: string }
   ): Promise<ExtractionChunkResult>;
 }

@@ -3,6 +3,8 @@ import { getSession, updateSession, editBlockReason } from "../repo.js";
 import { db, logAudit } from "../db.js";
 import { analyzeBottlenecks, analyzeCost, analyzeSensitivity, generateTimingGaps } from "../pipeline/analytics.js";
 import { detectAntipatterns } from "../pipeline/antipatterns.js";
+import { logAgentStep } from "../pipeline/agents.js";
+import { nanoid } from "nanoid";
 
 export const analyticsRouter = Router();
 
@@ -48,7 +50,9 @@ analyticsRouter.post("/sessions/:id/analytics/request-timing-gaps", (req, res) =
 analyticsRouter.get("/sessions/:id/analytics/antipatterns", (req, res) => {
   const session = requireReady(req, res);
   if (!session) return;
-  res.json(detectAntipatterns(session.model!));
+  const findings = detectAntipatterns(session.model!);
+  logAgentStep(req.params.id, `run_${nanoid(10)}`, 1, "analyst", `Найдено антипаттернов: ${findings.length}`);
+  res.json(findings);
 });
 
 // --- ФТ-М2.2: ставки ролей (общий справочник, не привязан к сессии) ---

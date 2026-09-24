@@ -11,6 +11,7 @@ import { generateIdef0 } from "../pipeline/idef0.js";
 import { getLLMProvider } from "../llm/provider.js";
 import { startTrackChat, turnTrackChat } from "../pipeline/trackInterview.js";
 import { mergeTracks } from "../pipeline/multiInterview.js";
+import { logAgentStep } from "../pipeline/agents.js";
 import { logAudit } from "../db.js";
 import type { ProcessLogicModel } from "../types/model.js";
 
@@ -200,6 +201,13 @@ multiInterviewRouter.post("/sessions/:id/tracks/merge", async (req, res) => {
       provider: provider.name,
     });
     logAudit(req.params.id, "analyst", "tracks_merged", { tracks: tracksWithContent.length, discrepancies: mergedModel.discrepancies.length });
+    logAgentStep(
+      req.params.id,
+      `run_${nanoid(10)}`,
+      1,
+      "merger",
+      `Слито дорожек: ${tracksWithContent.length}, расхождений: ${mergedModel.discrepancies.length}`
+    );
     const updated = addVersion(req.params.id, `Слияние ${tracksWithContent.length} дорожек интервью`);
     res.json(updated);
   } catch (e) {

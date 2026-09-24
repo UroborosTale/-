@@ -10,6 +10,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import RequirementsPage from "./pages/RequirementsPage";
 import ChecklistRulesPage from "./pages/ChecklistRulesPage";
 import AuditLogPage from "./pages/AuditLogPage";
+import TechnologyPage from "./pages/TechnologyPage";
 
 type View =
   | { name: "list" }
@@ -20,7 +21,8 @@ type View =
   | { name: "notifications" }
   | { name: "requirements" }
   | { name: "checklistRules" }
-  | { name: "auditLog" };
+  | { name: "auditLog" }
+  | { name: "technology" };
 
 /** ФТ-М4.2.2: персональная ссылка /campaign/:campaignId/:token — отдельная публичная страница без основной навигации. */
 function matchCampaignRoute(): { campaignId: string; token: string } | null {
@@ -68,6 +70,7 @@ export default function App() {
           {view.name !== "requirements" && <button onClick={() => setView({ name: "requirements" })}>Реестр требований</button>}
           {view.name !== "checklistRules" && <button onClick={() => setView({ name: "checklistRules" })}>Чек-лист: правила</button>}
           {view.name !== "auditLog" && <button onClick={() => setView({ name: "auditLog" })}>Журнал аудита</button>}
+          {view.name !== "technology" && <button onClick={() => setView({ name: "technology" })}>Технологии</button>}
           {view.name !== "list" && <button onClick={() => setView({ name: "list" })}>Все сессии</button>}
           {view.name !== "new" && <button className="primary" onClick={() => setView({ name: "new" })}>+ Новая сессия</button>}
         </div>
@@ -84,6 +87,7 @@ export default function App() {
         {view.name === "requirements" && <RequirementsPage />}
         {view.name === "checklistRules" && <ChecklistRulesPage />}
         {view.name === "auditLog" && <AuditLogPage />}
+        {view.name === "technology" && <TechnologyPage />}
       </div>
     </div>
   );

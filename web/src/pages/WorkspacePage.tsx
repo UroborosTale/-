@@ -21,10 +21,11 @@ import AnalyticsPanel from "../components/AnalyticsPanel";
 import ChecklistPanel from "../components/ChecklistPanel";
 import TraceabilityPanel from "../components/TraceabilityPanel";
 import JobDescriptionsPanel from "../components/JobDescriptionsPanel";
+import AgentRunsPanel from "../components/AgentRunsPanel";
 
 type Tab =
   | "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation"
-  | "multiInterview" | "verification" | "review" | "analytics" | "checklist" | "traceability" | "jobDescriptions" | "chat";
+  | "multiInterview" | "verification" | "review" | "analytics" | "checklist" | "traceability" | "jobDescriptions" | "agentRuns" | "chat";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -94,6 +95,7 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
     { key: "checklist", label: "Чек-лист" },
     { key: "traceability", label: "Трассировка требований" },
     { key: "jobDescriptions", label: "Должностные инструкции" },
+    { key: "agentRuns", label: "Журнал агентов" },
     { key: "regulation", label: "Регламент" },
     { key: "multiInterview", label: "Мультиинтервью" },
     { key: "verification", label: "Верификация" },
@@ -231,6 +233,7 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
             {tab === "traceability" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "jobDescriptions" && model && <JobDescriptionsPanel session={session} />}
             {tab === "jobDescriptions" && !model && <p className="muted">Модель ещё не построена.</p>}
+            {tab === "agentRuns" && <AgentRunsPanel sessionId={session.id} />}
             {tab === "regulation" && model && <RegulationPanel session={session} />}
             {tab === "regulation" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "multiInterview" && <MultiInterviewPanel session={session} onChanged={reload} />}

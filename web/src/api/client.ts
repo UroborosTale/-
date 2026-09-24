@@ -296,6 +296,66 @@ export interface AuditLogRow {
   ts: string;
 }
 
+// --- М9.2 Мультиагентная архитектура ---
+export interface AgentConfigRow {
+  agentKey: string;
+  label: string;
+  modelName: string;
+}
+export interface AgentRunRow {
+  id: number;
+  runId: string;
+  iteration: number;
+  agent: string;
+  label: string;
+  summary: string;
+  model: string | null;
+  ts: string;
+}
+
+// --- М9.1 Корпус ---
+export interface CorpusStats {
+  count: number;
+  fineTuneThreshold: number;
+  fineTuneReady: boolean;
+  note: string;
+}
+export interface CorpusEntryRow {
+  id: string;
+  sessionId: string;
+  processName: string;
+  createdAt: string;
+}
+export interface SimilarCorpusEntry {
+  id: string;
+  processName: string;
+  score: number;
+}
+
+// --- М9.1.4/9.3.3 Регрессионная оценка ---
+export interface EvalCaseResult {
+  caseId: string;
+  expectedRoles: string[];
+  foundRoles: string[];
+  expectedNodes: string[];
+  foundNodes: string[];
+  roleRecall: number;
+  nodeRecall: number;
+  error?: string;
+}
+export interface EvalSummary {
+  provider: string;
+  cases: EvalCaseResult[];
+  avgRoleRecall: number;
+  avgNodeRecall: number;
+}
+
+export interface LLMStatus {
+  name: string;
+  live: boolean;
+  localConfigured: boolean;
+}
+
 const BASE = "/api";
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -564,4 +624,18 @@ export const api = {
   jobDescriptionPreviewUrl: (id: string, roleId: string) => `${BASE}/sessions/${id}/job-description/${roleId}/preview`,
   jobDescriptionExportHtmlUrl: (id: string, roleId: string) => `${BASE}/sessions/${id}/job-description/${roleId}/export.html`,
   jobDescriptionExportDocxUrl: (id: string, roleId: string) => `${BASE}/sessions/${id}/job-description/${roleId}/export.docx`,
+
+  // --- М9.2 Мультиагентная архитектура ---
+  listAgentConfig: () => req<AgentConfigRow[]>("GET", "/agent-config"),
+  setAgentModel: (agentKey: string, modelName: string) => req<AgentConfigRow>("PUT", `/agent-config/${agentKey}`, { modelName }),
+  listAgentRuns: (id: string) => req<AgentRunRow[]>("GET", `/sessions/${id}/agent-runs`),
+
+  // --- М9.1 Корпус ---
+  getCorpusStats: () => req<CorpusStats>("GET", "/corpus/stats"),
+  listCorpus: () => req<CorpusEntryRow[]>("GET", "/corpus"),
+  findSimilarCorpus: (text: string) => req<SimilarCorpusEntry[]>("GET", `/corpus/similar?${new URLSearchParams({ text })}`),
+
+  // --- М9.1.4/9.3.3 Регрессионная оценка / М9.3 статус провайдеров ---
+  runEval: (provider: string) => req<EvalSummary>("GET", `/eval?provider=${encodeURIComponent(provider)}`),
+  getLlmStatus: () => req<LLMStatus>("GET", "/llm-status"),
 };

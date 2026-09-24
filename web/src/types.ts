@@ -230,6 +230,7 @@ export interface SessionMeta {
   modelType: "AS-IS" | "TO-BE";
   decompositionDepth: number;
   notations: ("IDEF0" | "BPMN")[];
+  confidential?: boolean;
 }
 
 export interface Comment {

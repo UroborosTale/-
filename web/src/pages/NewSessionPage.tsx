@@ -9,6 +9,7 @@ export default function NewSessionPage({ onCreated }: { onCreated: (id: string) 
   const [department, setDepartment] = useState("");
   const [modelType, setModelType] = useState<"AS-IS" | "TO-BE">("AS-IS");
   const [depth, setDepth] = useState(2);
+  const [confidential, setConfidential] = useState(false);
   const [templates, setTemplates] = useState<{ id: string; name: string; hints: string[] }[]>([]);
   const [templateId, setTemplateId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,6 +34,7 @@ export default function NewSessionPage({ onCreated }: { onCreated: (id: string) 
         modelType,
         decompositionDepth: depth,
         notations: ["IDEF0", "BPMN"],
+        confidential,
       };
       const session = await api.createSession({ mode, meta });
       onCreated(session.id);
@@ -88,6 +90,16 @@ export default function NewSessionPage({ onCreated }: { onCreated: (id: string) 
           <div className="form-row">
             <label>Глубина декомпозиции IDEF0</label>
             <input type="number" min={1} max={4} value={depth} onChange={(e) => setDepth(Number(e.target.value) || 2)} />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
+            <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} />
+            Конфиденциальный процесс
+          </label>
+          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+            Обработка допускается только локальным провайдером (без передачи текста внешнему LLM). Если локальный провайдер не настроен, обработка будет отклонена.
           </div>
         </div>
 

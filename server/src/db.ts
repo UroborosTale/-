@@ -163,6 +163,38 @@ CREATE TABLE IF NOT EXISTS checklist_rules (
   enabled INTEGER NOT NULL DEFAULT 1
 );
 
+-- М9.1: корпус подтверждённых пар "текст интервью — утверждённая PLM" для
+-- few-shot подбора примеров (9.1.2) и регрессионной оценки (9.1.4). Пополняется
+-- только из утверждённых версий (repo.ts addVersion), конфиденциальные
+-- процессы исключаются (9.1.5).
+CREATE TABLE IF NOT EXISTS corpus_entries (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  process_name TEXT NOT NULL,
+  raw_text TEXT NOT NULL,
+  model_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- М9.2.3: журнал шагов мультиагентного оркестратора (извлекатель/сборщик/
+-- критик/интервьюер/аналитик/документалист) — для разбора ошибок.
+CREATE TABLE IF NOT EXISTS agent_run_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT,
+  run_id TEXT NOT NULL,
+  iteration INTEGER NOT NULL DEFAULT 1,
+  agent TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  model TEXT,
+  ts TEXT NOT NULL
+);
+
+-- М9.2.4: модель LLM, назначаемая каждому агенту отдельно.
+CREATE TABLE IF NOT EXISTS agent_model_config (
+  agent_key TEXT PRIMARY KEY,
+  model_name TEXT NOT NULL
+);
+
 -- М3.4: отклонённые аналитиком кандидаты в дубли (чтобы не предлагать повторно)
 CREATE TABLE IF NOT EXISTS duplicate_dismissals (
   from_process_id TEXT NOT NULL,
@@ -249,6 +281,15 @@ const seedChecklistCount = (db.prepare(`SELECT COUNT(*) AS c FROM checklist_rule
 if (seedChecklistCount === 0) {
   const insertRule = db.prepare(`INSERT INTO checklist_rules (id, code, label, enabled) VALUES (?, ?, ?, 1)`);
   for (const r of CHECKLIST_SEED) insertRule.run(`rule_${r.code}`, r.code, r.label);
+}
+
+/** ФТ-М9.2.1/9.2.4: роли агентов мультиагентного конвейера и модель LLM по умолчанию для каждого. */
+const DEFAULT_AGENT_MODEL = process.env.LLM_MODEL || "claude-sonnet-4-5";
+const AGENT_SEED: string[] = ["extractor", "merger", "critic", "interviewer", "analyst", "documentalist"];
+const seedAgentsCount = (db.prepare(`SELECT COUNT(*) AS c FROM agent_model_config`).get() as { c: number }).c;
+if (seedAgentsCount === 0) {
+  const insertAgent = db.prepare(`INSERT INTO agent_model_config (agent_key, model_name) VALUES (?, ?)`);
+  for (const key of AGENT_SEED) insertAgent.run(key, DEFAULT_AGENT_MODEL);
 }
 
 export function logAudit(sessionId: string | null, actor: string, action: string, details?: unknown) {

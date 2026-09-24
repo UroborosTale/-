@@ -44,6 +44,7 @@ sessionsRouter.post("/sessions", (req, res) => {
     modelType: body.meta.modelType ?? "AS-IS",
     decompositionDepth: body.meta.decompositionDepth ?? 2,
     notations: body.meta.notations ?? ["IDEF0", "BPMN"],
+    confidential: body.meta.confidential ?? false,
   };
   const session = createSession({ title: body.title || meta.processName, mode: body.mode ?? "A", meta });
   res.status(201).json(session);

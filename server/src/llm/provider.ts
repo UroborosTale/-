@@ -21,10 +21,11 @@ export class AnthropicProvider implements LLMProvider {
 
   async extractChunk(
     fragments: LLMFragmentInput[],
-    context: { processName: string; modelType: "AS-IS" | "TO-BE" }
+    context: { processName: string; modelType: "AS-IS" | "TO-BE"; fewShotContext?: string },
+    opts?: { model?: string }
   ): Promise<ExtractionChunkResult> {
     const msg = await this.client.messages.create({
-      model: MODEL_ID,
+      model: opts?.model || MODEL_ID,
       max_tokens: 4096,
       temperature: 0,
       system: EXTRACTION_SYSTEM_PROMPT,
@@ -33,7 +34,7 @@ export class AnthropicProvider implements LLMProvider {
       messages: [
         {
           role: "user",
-          content: buildChunkUserPrompt(context.processName, context.modelType, formatFragments(fragments)),
+          content: buildChunkUserPrompt(context.processName, context.modelType, formatFragments(fragments), context.fewShotContext),
         },
       ],
     });
@@ -45,6 +46,47 @@ export class AnthropicProvider implements LLMProvider {
       throw new Error("LLM did not return structured tool_use output");
     }
     return toolUse.input as ExtractionChunkResult;
+  }
+}
+
+/**
+ * ФТ-М9.3.1: локальный инференс (vLLM или аналог, OpenAI-совместимый API) для
+ * конфиденциальных процессов (ФТ-М9.3.2) — данные не покидают контур (НФТ-6).
+ * Формат вызова — OpenAI chat.completions с tool-calling, т.к. это наиболее
+ * распространённый совместимый интерфейс у локальных серверов инференса.
+ */
+export class LocalProvider implements LLMProvider {
+  readonly name = "local";
+  constructor(private baseUrl: string, private defaultModel: string) {}
+
+  async extractChunk(
+    fragments: LLMFragmentInput[],
+    context: { processName: string; modelType: "AS-IS" | "TO-BE"; fewShotContext?: string },
+    opts?: { model?: string }
+  ): Promise<ExtractionChunkResult> {
+    const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: opts?.model || this.defaultModel,
+        temperature: 0,
+        messages: [
+          { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
+          { role: "user", content: buildChunkUserPrompt(context.processName, context.modelType, formatFragments(fragments), context.fewShotContext) },
+        ],
+        tools: [{ type: "function", function: { name: EXTRACTION_TOOL.name, description: EXTRACTION_TOOL.description, parameters: (EXTRACTION_TOOL as any).input_schema } }],
+        tool_choice: { type: "function", function: { name: EXTRACTION_TOOL.name } },
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Локальный провайдер вернул ошибку ${res.status}: ${await res.text()}`);
+    }
+    const data = (await res.json()) as any;
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall) {
+      throw new Error("Локальный провайдер не вернул структурированный вызов инструмента");
+    }
+    return JSON.parse(toolCall.function.arguments) as ExtractionChunkResult;
   }
 }
 
@@ -66,6 +108,14 @@ export class MockProvider implements LLMProvider {
 }
 
 let cachedProvider: LLMProvider | null = null;
+let cachedLocalProvider: LocalProvider | null | undefined;
+
+export function getLocalProviderIfConfigured(): LocalProvider | null {
+  if (cachedLocalProvider !== undefined) return cachedLocalProvider;
+  const baseUrl = process.env.LOCAL_LLM_BASE_URL;
+  cachedLocalProvider = baseUrl ? new LocalProvider(baseUrl, process.env.LOCAL_LLM_MODEL || "local-model") : null;
+  return cachedLocalProvider;
+}
 
 export function getLLMProvider(): LLMProvider {
   if (cachedProvider) return cachedProvider;
@@ -74,7 +124,41 @@ export function getLLMProvider(): LLMProvider {
   return cachedProvider;
 }
 
-export function providerStatus(): { name: string; live: boolean } {
+/**
+ * ФТ-М9.3.2: маршрутизация по признаку конфиденциальности — процесс с этим
+ * признаком обрабатывается ТОЛЬКО локальным провайдером; если он не
+ * настроен, обработка отклоняется явной ошибкой (никогда не уходит наружу).
+ */
+export function resolveProvider(confidential?: boolean): LLMProvider {
+  if (confidential) {
+    const local = getLocalProviderIfConfigured();
+    if (!local) {
+      throw new Error(
+        "Процесс помечен как конфиденциальный — обработка допускается только локальным провайдером (LOCAL_LLM_BASE_URL), но он не настроен."
+      );
+    }
+    return local;
+  }
+  return getLLMProvider();
+}
+
+export function providerStatus(): { name: string; live: boolean; localConfigured: boolean } {
   const p = getLLMProvider();
-  return { name: p.name, live: p.name !== "mock" };
+  return { name: p.name, live: p.name !== "mock", localConfigured: !!getLocalProviderIfConfigured() };
+}
+
+/** ФТ-М9.1.4/9.3.3: получить провайдер по имени для регрессионной оценки/сравнения (без учёта конфиденциальности). */
+export function getProviderByName(name: string): LLMProvider {
+  if (name === "mock") return new MockProvider();
+  if (name === "anthropic") {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("Anthropic-провайдер не настроен (нет ANTHROPIC_API_KEY).");
+    return new AnthropicProvider(apiKey);
+  }
+  if (name === "local") {
+    const local = getLocalProviderIfConfigured();
+    if (!local) throw new Error("Локальный провайдер не настроен (нет LOCAL_LLM_BASE_URL).");
+    return local;
+  }
+  throw new Error(`Неизвестный провайдер: ${name}`);
 }

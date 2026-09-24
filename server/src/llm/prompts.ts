@@ -11,13 +11,15 @@ export const EXTRACTION_SYSTEM_PROMPT = `Ты — модуль извлечен�
 8. order_hint — целое число, отражающее порядок действия по смыслу текста (для последующей сборки потока).
 9. Отвечай строго вызовом инструмента extract_process_chunk, без свободного текста.`;
 
+/** ФТ-М9.1.2: краткие похожие утверждённые примеры из корпуса — как few-shot подсказка LLM (не используется офлайн-провайдером). */
 export function buildChunkUserPrompt(
   processName: string,
   modelType: string,
-  fragmentsText: string
+  fragmentsText: string,
+  fewShotContext?: string
 ): string {
   return `Процесс: "${processName}". Тип модели: ${modelType}.
-
+${fewShotContext ? `\n${fewShotContext}\n` : ""}
 Фрагменты интервью (speaker=owner/participant — факты процесса, speaker=interviewer — вопросы для контекста):
 
 ${fragmentsText}

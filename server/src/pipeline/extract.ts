@@ -62,6 +62,8 @@ export async function extractModel(
     owner?: string;
     decompositionDepth?: number;
     onProgress?: (p: ExtractProgress) => void;
+    llmModel?: string; // ФТ-М9.2.4: модель LLM, назначенная агенту-извлекателю
+    fewShotContext?: string; // ФТ-М9.1.2: похожие утверждённые примеры из корпуса
   }
 ): Promise<ProcessLogicModel> {
   const factFragments = fragments; // интервьюер тоже передаётся как контекст (правило 3 промпта)
@@ -92,10 +94,11 @@ export async function extractModel(
 
     let chunkResult: ExtractionChunkResult;
     try {
-      chunkResult = await provider.extractChunk(llmInput, {
-        processName: opts.processName,
-        modelType: opts.modelType,
-      });
+      chunkResult = await provider.extractChunk(
+        llmInput,
+        { processName: opts.processName, modelType: opts.modelType, fewShotContext: ci === 0 ? opts.fewShotContext : undefined },
+        { model: opts.llmModel }
+      );
     } catch (err) {
       console.error("LLM extractChunk failed, skipping chunk", err);
       opts.onProgress?.({ chunkIndex: ci + 1, totalChunks: chunks.length });
