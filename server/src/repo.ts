@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { db, logAudit } from "./db.js";
 import type { ProcessLogicModel, Fragment, ValidationIssue, ChatMessage } from "./types/model.js";
 import type { Idef0Result } from "./pipeline/idef0.js";
+import type { ImpactReport } from "./pipeline/impactAnalysis.js";
 
 export interface SessionMeta {
   processName: string;
@@ -25,9 +26,33 @@ export interface VersionSnapshot {
 export interface Comment {
   id: string;
   element_id: string | null;
+  paragraph_id?: string | null; // ФТ-М7.2.3: замечание может относиться к абзацу документа (регламент/верификация), а не к элементу модели
   text: string;
   author: string;
   ts: string;
+}
+
+/** ФТ-М7.2: один шаг настраиваемого маршрута согласования. */
+export interface ReviewStep {
+  id: string;
+  role: string; // произвольный код роли шага, напр. "analyst" | "owner" | "normcontrol"
+  label: string; // отображаемое название, напр. "Нормоконтролёр"
+  assignee?: string | null;
+  status: "pending" | "approved" | "rejected" | "skipped";
+  comment?: string | null;
+  ts?: string | null;
+}
+
+/** ФТ-М7.2.1/7.2.2: маршрут согласования и его статус. */
+export interface ReviewRoute {
+  id: string;
+  steps: ReviewStep[];
+  currentStepIndex: number;
+  status: "review" | "needs_rework" | "approved";
+  baselineSeq: number; // версия модели на начало цикла согласования — для diff/анализа влияния (ФТ-М7.3)
+  impactReport: ImpactReport | null; // снимок анализа влияния на момент старта согласования
+  startedAt: string;
+  completedAt?: string | null;
 }
 
 /** ФТ-М4.1: участник мультиинтервью в рамках одной сессии моделирования. */
@@ -71,6 +96,7 @@ export interface SessionRecord {
   respondents: SessionRespondent[];
   tracks: InterviewTrack[];
   verificationConfirmed: string[]; // ФТ-М4.4.2: id подтверждённых абзацев пересказа
+  reviewRoute: ReviewRoute | null; // ФТ-М7.2: текущий маршрут согласования (null — вне цикла согласования)
   createdAt: string;
   updatedAt: string;
 }
@@ -98,6 +124,7 @@ function rowToRecord(row: any): SessionRecord {
     respondents: JSON.parse(row.respondents_json ?? "[]"),
     tracks: JSON.parse(row.tracks_json ?? "[]"),
     verificationConfirmed: JSON.parse(row.verification_confirmed_json ?? "[]"),
+    reviewRoute: row.review_route_json ? JSON.parse(row.review_route_json) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -148,6 +175,7 @@ export interface SessionUpdate {
   respondents?: SessionRespondent[];
   tracks?: InterviewTrack[];
   verificationConfirmed?: string[];
+  reviewRoute?: ReviewRoute | null;
 }
 
 export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
@@ -158,7 +186,7 @@ export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
     `UPDATE sessions SET
       title = ?, status = ?, meta_json = ?, fragments_json = ?, raw_text = ?, model_json = ?,
       validation_json = ?, bpmn_xml = ?, idef0_json = ?, chat_json = ?, comments_json = ?, qa_json = ?,
-      diagrams_stale = ?, provider = ?, regulation_snapshot_seq = ?, respondents_json = ?, tracks_json = ?, verification_confirmed_json = ?, updated_at = ?
+      diagrams_stale = ?, provider = ?, regulation_snapshot_seq = ?, respondents_json = ?, tracks_json = ?, verification_confirmed_json = ?, review_route_json = ?, updated_at = ?
      WHERE id = ?`
   ).run(
     patch.title ?? current.title,
@@ -179,10 +207,23 @@ export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
     JSON.stringify(patch.respondents ?? current.respondents),
     JSON.stringify(patch.tracks ?? current.tracks),
     JSON.stringify(patch.verificationConfirmed ?? current.verificationConfirmed),
+    patch.reviewRoute !== undefined ? (patch.reviewRoute ? JSON.stringify(patch.reviewRoute) : null) : current.reviewRoute ? JSON.stringify(current.reviewRoute) : null,
     now,
     id
   );
   return getSession(id)!;
+}
+
+/**
+ * ФТ-М7.2.4: утверждённая версия блокируется от изменений модели — правки
+ * возможны только после явного возврата в черновик (POST /sessions/:id/reopen).
+ * Возвращает причину отказа или null, если редактирование разрешено.
+ */
+export function editBlockReason(session: SessionRecord): string | null {
+  if (session.model?.process.status === "approved") {
+    return "Версия утверждена и заблокирована от изменений. Откройте новый цикл правок (reopen), чтобы продолжить редактирование.";
+  }
+  return null;
 }
 
 /**

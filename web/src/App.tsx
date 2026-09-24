@@ -6,8 +6,9 @@ import WorkspacePage from "./pages/WorkspacePage";
 import RegistryPage from "./pages/RegistryPage";
 import GlossaryPage from "./pages/GlossaryPage";
 import RespondentInterviewPage from "./pages/RespondentInterviewPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
-type View = { name: "list" } | { name: "new" } | { name: "workspace"; id: string } | { name: "registry" } | { name: "glossary" };
+type View = { name: "list" } | { name: "new" } | { name: "workspace"; id: string } | { name: "registry" } | { name: "glossary" } | { name: "notifications" };
 
 /** ФТ-М4.2.2: персональная ссылка /campaign/:campaignId/:token — отдельная публичная страница без основной навигации. */
 function matchCampaignRoute(): { campaignId: string; token: string } | null {
@@ -19,10 +20,15 @@ export default function App() {
   const campaignRoute = matchCampaignRoute();
   const [view, setView] = useState<View>({ name: "list" });
   const [provider, setProvider] = useState<{ name: string; live: boolean } | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     api.providerStatus().then(setProvider).catch(() => setProvider(null));
   }, []);
+
+  useEffect(() => {
+    api.listNotifications({ unread: true }).then((rows) => setUnreadCount(rows.length)).catch(() => {});
+  }, [view]);
 
   if (campaignRoute) {
     return <RespondentInterviewPage campaignId={campaignRoute.campaignId} token={campaignRoute.token} />;
@@ -40,6 +46,11 @@ export default function App() {
               {provider.live ? `LLM: ${provider.name}` : "офлайн-режим (без внешней LLM)"}
             </span>
           )}
+          {view.name !== "notifications" && (
+            <button onClick={() => setView({ name: "notifications" })}>
+              Уведомления{unreadCount > 0 ? ` (${unreadCount})` : ""}
+            </button>
+          )}
           {view.name !== "registry" && <button onClick={() => setView({ name: "registry" })}>Реестр процессов</button>}
           {view.name !== "glossary" && <button onClick={() => setView({ name: "glossary" })}>Справочники</button>}
           {view.name !== "list" && <button onClick={() => setView({ name: "list" })}>Все сессии</button>}
@@ -54,6 +65,7 @@ export default function App() {
         {view.name === "workspace" && <WorkspacePage sessionId={view.id} onBack={() => setView({ name: "list" })} />}
         {view.name === "registry" && <RegistryPage />}
         {view.name === "glossary" && <GlossaryPage />}
+        {view.name === "notifications" && <NotificationsPage />}
       </div>
     </div>
   );

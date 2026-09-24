@@ -115,7 +115,7 @@ export interface ProcessMeta {
   level?: "L0" | "L1" | "L2" | "L3" | null;
   parent_process_id?: string | null;
   version: string;
-  status: "draft" | "review" | "approved" | "archived";
+  status: "draft" | "review" | "needs_rework" | "approved" | "archived";
   review_date?: string | null;
   kpi: Kpi[];
 }
@@ -274,6 +274,7 @@ export interface SessionRecord {
   respondents: SessionRespondent[];
   tracks: InterviewTrack[];
   verificationConfirmed: string[];
+  reviewRoute: unknown | null; // см. ReviewRoute в api/client.ts (типизировано подробно там, чтобы не заводить цикл импортов)
   createdAt: string;
   updatedAt: string;
 }

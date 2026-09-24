@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { nanoid } from "nanoid";
-import { getSession, updateSession, addVersion } from "../repo.js";
+import { getSession, updateSession, addVersion, editBlockReason } from "../repo.js";
 import type { SessionRespondent, InterviewTrack } from "../repo.js";
 import { fragmentText } from "../pipeline/fragment.js";
 import { extractModel } from "../pipeline/extract.js";
@@ -159,6 +159,11 @@ multiInterviewRouter.post("/sessions/:id/tracks/merge", async (req, res) => {
     res.status(404).json({ error: "not found" });
     return;
   }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
+    return;
+  }
   const tracksWithContent = session.tracks.filter((t) => t.fragments.length > 0);
   if (tracksWithContent.length === 0) {
     res.status(400).json({ error: "ни одна дорожка не содержит текста интервью" });
@@ -222,6 +227,11 @@ multiInterviewRouter.post("/sessions/:id/discrepancies/:discId/resolve", (req, r
   const disc = session.model.discrepancies.find((d) => d.id === req.params.discId);
   if (!disc) {
     res.status(404).json({ error: "discrepancy not found" });
+    return;
+  }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
     return;
   }
   const { resolved_value, respondent_id } = req.body as { resolved_value?: string; respondent_id?: string };

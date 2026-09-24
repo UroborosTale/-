@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   respondents_json TEXT NOT NULL DEFAULT '[]',
   tracks_json TEXT NOT NULL DEFAULT '[]',
   verification_confirmed_json TEXT NOT NULL DEFAULT '[]',
+  review_route_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -118,6 +119,25 @@ CREATE TABLE IF NOT EXISTS campaign_respondents (
   last_reminded_at TEXT
 );
 
+-- М7.4: уведомления о влиянии утверждённых изменений
+CREATE TABLE IF NOT EXISTS notification_webhooks (
+  session_id TEXT PRIMARY KEY,
+  webhook_url TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  recipient_kind TEXT NOT NULL, -- 'process_owner' | 'role'
+  recipient_label TEXT NOT NULL,
+  recipient_contact TEXT,
+  channel TEXT NOT NULL DEFAULT 'system', -- 'system' | 'webhook'
+  message TEXT NOT NULL,
+  diff_link TEXT,
+  is_read INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 -- М1.5.2: синхронизация карточки процесса с внешним реестром через коннектор
 -- (генерический вебхук + настраиваемый маппинг полей — без привязки к
 -- конкретному вендору, т.к. в этом окружении нет реальных учётных данных
@@ -150,6 +170,11 @@ try {
 }
 try {
   db.exec(`ALTER TABLE sessions ADD COLUMN verification_confirmed_json TEXT NOT NULL DEFAULT '[]'`);
+} catch {
+  // колонка уже существует
+}
+try {
+  db.exec(`ALTER TABLE sessions ADD COLUMN review_route_json TEXT`);
 } catch {
   // колонка уже существует
 }

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createSession, deleteSession, getSession, listSessions, updateSession, addVersion } from "../repo.js";
+import { createSession, deleteSession, getSession, listSessions, updateSession, addVersion, editBlockReason } from "../repo.js";
 import type { SessionMeta } from "../repo.js";
 import { ProcessLogicModel } from "../types/model.js";
 import { validateModel } from "../pipeline/validate.js";
@@ -84,6 +84,11 @@ sessionsRouter.put("/sessions/:id/model", (req, res) => {
   const session = getSession(req.params.id);
   if (!session) {
     res.status(404).json({ error: "not found" });
+    return;
+  }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
     return;
   }
   const parsed = ProcessLogicModel.safeParse(req.body);

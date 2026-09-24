@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSession, updateSession } from "../repo.js";
+import { getSession, updateSession, editBlockReason } from "../repo.js";
 import { fragmentText } from "../pipeline/fragment.js";
 import { runPipeline } from "../pipeline/run.js";
 import { INTERVIEW_OPENING_QUESTION, isInterviewComplete, mergeManualGaps, selectNextQuestion } from "../pipeline/interviewEngine.js";
@@ -38,6 +38,11 @@ interviewRouter.post("/sessions/:id/interview/turn", async (req, res) => {
   }
   if (!text || !text.trim()) {
     res.status(400).json({ error: "text is required" });
+    return;
+  }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
     return;
   }
 

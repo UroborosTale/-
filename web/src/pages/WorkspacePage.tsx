@@ -16,8 +16,9 @@ import RaciPanel from "../components/RaciPanel";
 import RegulationPanel from "../components/RegulationPanel";
 import MultiInterviewPanel from "../components/MultiInterviewPanel";
 import VerificationPanel from "../components/VerificationPanel";
+import ReviewPanel from "../components/ReviewPanel";
 
-type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation" | "multiInterview" | "verification" | "chat";
+type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation" | "multiInterview" | "verification" | "review" | "chat";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -86,6 +87,7 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
     { key: "regulation", label: "Регламент" },
     { key: "multiInterview", label: "Мультиинтервью" },
     { key: "verification", label: "Верификация" },
+    { key: "review", label: "Согласование" },
     { key: "versions", label: "Версии" },
     { key: "export", label: "Экспорт" },
   ];
@@ -216,6 +218,7 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
             {tab === "multiInterview" && <MultiInterviewPanel session={session} onChanged={reload} />}
             {tab === "verification" && model && <VerificationPanel session={session} onChanged={reload} />}
             {tab === "verification" && !model && <p className="muted">Модель ещё не построена.</p>}
+            {tab === "review" && <ReviewPanel session={session} onChanged={reload} />}
             {tab === "versions" && <VersionsPanel session={session} onChanged={reload} />}
             {tab === "export" && <ExportsPanel session={session} />}
           </div>

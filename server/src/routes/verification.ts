@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { getSession, updateSession, addVersion } from "../repo.js";
+import { getSession, updateSession, addVersion, editBlockReason } from "../repo.js";
 import { buildParaphrase } from "../pipeline/verification.js";
 import { extractModel } from "../pipeline/extract.js";
 import { detectGaps } from "../pipeline/gaps.js";
 import { validateModel } from "../pipeline/validate.js";
 import { getLLMProvider } from "../llm/provider.js";
 import { fragmentText } from "../pipeline/fragment.js";
-import { diffModels } from "./versions.js";
+import { diffModels } from "../pipeline/diff.js";
 import { logAudit } from "../db.js";
 import { ProcessLogicModel, type Fragment } from "../types/model.js";
 
@@ -109,6 +109,11 @@ verificationRouter.post("/sessions/:id/verification/apply-edit", (req, res) => {
   const session = getSession(req.params.id);
   if (!session) {
     res.status(404).json({ error: "not found" });
+    return;
+  }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
     return;
   }
   const { proposedModel, proposedFragments, proposedRawText } = req.body as { proposedModel: unknown; proposedFragments: Fragment[]; proposedRawText: string };

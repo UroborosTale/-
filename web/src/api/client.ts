@@ -33,6 +33,50 @@ export interface VerificationParagraph {
   sourceRefs: string[];
 }
 
+export interface ReviewStep {
+  id: string;
+  role: string;
+  label: string;
+  assignee?: string | null;
+  status: "pending" | "approved" | "rejected" | "skipped";
+  comment?: string | null;
+  ts?: string | null;
+}
+export interface ImpactReport {
+  significance: "cosmetic" | "structural" | "affects_others";
+  changedElementIds: string[];
+  changedNodeNames: string[];
+  adjacentProcesses: { processId: string; name: string; owner: string | null; reason: string }[];
+  affectedDocuments: { paragraphId: string; section: string }[];
+  affectedRequirements: { requirementId: string; elementId: string }[];
+  affectedRoles: { roleId: string; name: string }[];
+  kpiChanged: boolean;
+  baselineSeq?: number;
+  currentSeq?: number | null;
+}
+export interface ReviewRoute {
+  id: string;
+  steps: ReviewStep[];
+  currentStepIndex: number;
+  status: "review" | "needs_rework" | "approved";
+  baselineSeq: number;
+  impactReport: ImpactReport | null;
+  startedAt: string;
+  completedAt?: string | null;
+}
+export interface NotificationRow {
+  id: string;
+  session_id: string;
+  recipient_kind: string;
+  recipient_label: string;
+  recipient_contact: string | null;
+  channel: string;
+  message: string;
+  diff_link: string | null;
+  is_read: number;
+  created_at: string;
+}
+
 export interface RegistryProcess {
   id: string;
   code: string | null;
@@ -42,7 +86,7 @@ export interface RegistryProcess {
   classification: "main" | "support" | "management";
   owner: string | null;
   department: string | null;
-  status: "draft" | "review" | "approved" | "archived";
+  status: "draft" | "review" | "needs_rework" | "approved" | "archived";
   version: string;
   review_date: string | null;
   session_id: string | null;
@@ -273,4 +317,29 @@ export const api = {
   ),
   applyVerificationEdit: (id: string, proposal: { proposedModel: unknown; proposedFragments: unknown; proposedRawText: string }) =>
     req<SessionRecord>("POST", `/sessions/${id}/verification/apply-edit`, proposal),
+
+  // --- М7.2 Маршрут согласования ---
+  getReview: (id: string) => req<ReviewRoute | null>("GET", `/sessions/${id}/review`),
+  startReview: (id: string, steps?: { role: string; label: string; assignee?: string | null }[]) =>
+    req<{ session: SessionRecord; impactReport: ImpactReport | null }>("POST", `/sessions/${id}/review/start`, { steps }),
+  approveReviewStep: (id: string, comment?: string) =>
+    req<{ session: SessionRecord; finalized: boolean; impactReport?: ImpactReport; notificationsSent?: number }>("POST", `/sessions/${id}/review/steps/current/approve`, { comment }),
+  rejectReviewStep: (id: string, comment: string) =>
+    req<{ session: SessionRecord; finalized: boolean }>("POST", `/sessions/${id}/review/steps/current/reject`, { comment }),
+  reopenSession: (id: string) => req<SessionRecord>("POST", `/sessions/${id}/reopen`),
+
+  // --- М7.3 Анализ влияния ---
+  getImpact: (id: string, since?: number) => req<ImpactReport>("GET", `/sessions/${id}/impact${since !== undefined ? `?since=${since}` : ""}`),
+
+  // --- М7.4 Уведомления ---
+  listNotifications: (filters?: { session_id?: string; unread?: boolean }) => {
+    const params = new URLSearchParams();
+    if (filters?.session_id) params.set("session_id", filters.session_id);
+    if (filters?.unread) params.set("unread", "1");
+    const qs = params.toString();
+    return req<NotificationRow[]>("GET", `/notifications${qs ? `?${qs}` : ""}`);
+  },
+  markNotificationRead: (id: string) => req<void>("POST", `/notifications/${id}/read`),
+  getNotificationWebhook: (id: string) => req<{ webhook_url: string | null }>("GET", `/sessions/${id}/notification-webhook`),
+  setNotificationWebhook: (id: string, webhook_url: string) => req<{ webhook_url: string }>("PUT", `/sessions/${id}/notification-webhook`, { webhook_url }),
 };

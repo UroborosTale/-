@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getSession, updateSession } from "../repo.js";
 import { buildRegulation } from "../pipeline/regulation.js";
 import { buildRegulationHtml, buildRegulationDocx } from "../export/regulation.js";
-import { diffModels } from "./versions.js";
+import { diffModels } from "../pipeline/diff.js";
 import { logAudit } from "../db.js";
 
 export const regulationRouter = Router();

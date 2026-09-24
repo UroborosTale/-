@@ -100,6 +100,10 @@ a { color: var(--accent); }
 .pill.status-processing { background: #fef3c7; color: #92400e; }
 .pill.status-interviewing { background: #e0e7ff; color: #3730a3; }
 .pill.status-completed { background: #dcfce7; color: #166534; }
+.pill.status-review { background: #e0e7ff; color: #3730a3; }
+.pill.status-needs_rework { background: #fef3c7; color: #92400e; }
+.pill.status-approved { background: #dcfce7; color: #166534; }
+.pill.status-archived { background: #f1f5f9; color: var(--muted); }
 .pill.errors { background: var(--error-bg); color: #991b1b; }
 
 .form-grid { display: grid; gap: 12px; max-width: 560px; }

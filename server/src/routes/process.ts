@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSession, updateSession } from "../repo.js";
+import { getSession, updateSession, editBlockReason } from "../repo.js";
 import { fragmentText, normalizeTerms, anonymizeFragments } from "../pipeline/fragment.js";
 import { parseUploadedFile } from "../pipeline/ingest.js";
 import { runPipeline } from "../pipeline/run.js";
@@ -95,6 +95,11 @@ processRouter.post("/sessions/:id/run", async (req, res) => {
     res.status(400).json({ error: "нет текста интервью для обработки" });
     return;
   }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
+    return;
+  }
   updateSession(req.params.id, { status: "processing" });
   try {
     const output = await runPipeline(session.id, session.fragments, session.meta);
@@ -146,6 +151,11 @@ processRouter.post("/sessions/:id/answers", async (req, res) => {
   const gap = session.model.gaps.find((g) => g.id === gapId);
   if (!gap) {
     res.status(404).json({ error: "gap not found" });
+    return;
+  }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
     return;
   }
   const offset = session.fragments.length;

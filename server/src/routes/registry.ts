@@ -20,7 +20,7 @@ interface ProcessRow {
   classification: "main" | "support" | "management";
   owner: string | null;
   department: string | null;
-  status: "draft" | "review" | "approved" | "archived";
+  status: "draft" | "review" | "needs_rework" | "approved" | "archived";
   version: string;
   review_date: string | null;
   session_id: string | null;
@@ -153,7 +153,7 @@ registryRouter.delete("/registry/:id", (req, res) => {
 registryRouter.get("/registry/export/xlsx", (_req, res) => {
   const rows = db.prepare(`SELECT * FROM processes ORDER BY level, code, name`).all() as ProcessRow[];
   const CLASS_LABEL: Record<string, string> = { main: "Основной", support: "Обеспечивающий", management: "Управленческий" };
-  const STATUS_LABEL: Record<string, string> = { draft: "Черновик", review: "На согласовании", approved: "Утверждён", archived: "Архив" };
+  const STATUS_LABEL: Record<string, string> = { draft: "Черновик", review: "На согласовании", needs_rework: "На доработке", approved: "Утверждён", archived: "Архив" };
   const sheetRows = rows.map((r) => ({
     Код: r.code ?? "",
     Название: r.name,

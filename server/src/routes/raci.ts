@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSession, updateSession, addVersion } from "../repo.js";
+import { getSession, updateSession, addVersion, editBlockReason } from "../repo.js";
 import { buildRaci } from "../pipeline/raci.js";
 import { validateModel } from "../pipeline/validate.js";
 import { logAudit } from "../db.js";
@@ -12,6 +12,11 @@ raciRouter.post("/sessions/:id/raci/build", (req, res) => {
   const session = getSession(req.params.id);
   if (!session || !session.model) {
     res.status(404).json({ error: "модель ещё не построена" });
+    return;
+  }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
     return;
   }
   const raci = buildRaci(session.model);
@@ -28,6 +33,11 @@ raciRouter.post("/sessions/:id/raci/entries", (req, res) => {
   const session = getSession(req.params.id);
   if (!session || !session.model) {
     res.status(404).json({ error: "модель ещё не построена" });
+    return;
+  }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
     return;
   }
   const { node_id, role_id, type } = req.body as { node_id: string; role_id: string; type: "R" | "A" | "C" | "I" };
@@ -49,6 +59,11 @@ raciRouter.delete("/sessions/:id/raci/entries", (req, res) => {
   const session = getSession(req.params.id);
   if (!session || !session.model) {
     res.status(404).json({ error: "модель ещё не построена" });
+    return;
+  }
+  const block = editBlockReason(session);
+  if (block) {
+    res.status(409).json({ error: block });
     return;
   }
   const { node_id, role_id, type } = req.body as { node_id: string; role_id: string; type: "R" | "A" | "C" | "I" };

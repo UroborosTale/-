@@ -4,7 +4,7 @@ import type { SessionListItem } from "../types";
 
 const LEVEL_LABEL: Record<string, string> = { L0: "L0 — группа процессов", L1: "L1 — процесс", L2: "L2 — подпроцесс", L3: "L3 — процедура" };
 const CLASS_LABEL: Record<string, string> = { main: "Основной", support: "Обеспечивающий", management: "Управленческий" };
-const STATUS_LABEL: Record<string, string> = { draft: "Черновик", review: "На согласовании", approved: "Утверждён", archived: "Архив" };
+const STATUS_LABEL: Record<string, string> = { draft: "Черновик", review: "На согласовании", needs_rework: "На доработке", approved: "Утверждён", archived: "Архив" };
 
 /** ФТ-М3.1 (реестр процессов) + ФТ-М3.2 (связи, стыки, разрывы). */
 export default function RegistryPage() {

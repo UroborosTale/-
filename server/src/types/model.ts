@@ -151,7 +151,7 @@ export const ProcessMeta = z.object({
   level: z.enum(["L0", "L1", "L2", "L3"]).nullable().optional(),
   parent_process_id: z.string().nullable().optional(),
   version: z.string().default("0.1"), // семантическая версия документа модели (М7.1)
-  status: z.enum(["draft", "review", "approved", "archived"]).default("draft"),
+  status: z.enum(["draft", "review", "needs_rework", "approved", "archived"]).default("draft"), // ФТ-М7.2.2
   review_date: z.string().nullable().optional(), // дата планового пересмотра (М6.5)
   kpi: z.array(Kpi).default([]),
 });
