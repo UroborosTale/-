@@ -438,6 +438,31 @@ export interface CriticalityScore {
   reasons: string[];
 }
 
+// --- М1.4 Экспорт в BPMS ---
+export interface CompletenessReport {
+  target: "camunda" | "elma365";
+  notes: string[];
+  stats: { totalTasks: number; tasksWithoutAssignee: number; gatewaysWithConditionStubs: number };
+}
+
+// --- М9.4 Плагины к средам моделирования (round-trip) ---
+export interface BpmnReconcileChanges {
+  renamed: { nodeId: string; from: string; to: string }[];
+  added: string[];
+  missing: string[];
+}
+export interface DrawioReconcileChange {
+  nodeId: string;
+  from: string;
+  to: string;
+}
+
+// --- М9.5 Распознавание диаграмм на входе ---
+export interface DiagramImportResult {
+  session: SessionRecord;
+  warnings: string[];
+}
+
 const BASE = "/api";
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -745,4 +770,18 @@ export const api = {
   // --- М4.5 Адаптивная глубина ---
   getCriticality: (id: string) => req<CriticalityScore[]>("GET", `/sessions/${id}/adaptive-depth/criticality`),
   requestAdaptiveDepthGaps: (id: string) => req<{ added: number; gaps: Gap[] }>("POST", `/sessions/${id}/adaptive-depth/request-gaps`),
+
+  // --- М1.4 Экспорт в BPMS ---
+  bpmsCamundaUrl: (id: string) => `${BASE}/sessions/${id}/bpms/camunda.bpmn`,
+  bpmsElma365Url: (id: string) => `${BASE}/sessions/${id}/bpms/elma365.json`,
+  getBpmsCompletenessReport: (id: string, target: "camunda" | "elma365") => req<CompletenessReport>("GET", `/sessions/${id}/bpms/completeness-report?target=${target}`),
+
+  // --- М9.4 Плагины к средам моделирования (round-trip) ---
+  reimportBpmn: (id: string, xml: string) => req<{ session: SessionRecord; changes: BpmnReconcileChanges; warnings: string[] }>("POST", `/sessions/${id}/diagram-import/bpmn`, { xml }),
+  reimportDrawioIdef0: (id: string, xml: string) =>
+    req<{ session: SessionRecord; changes: DrawioReconcileChange[]; warnings: string[] }>("POST", `/sessions/${id}/diagram-import/drawio-idef0`, { xml }),
+
+  // --- М9.5 Распознавание диаграмм на входе ---
+  importDiagramNew: (input: { format: "bpmn" | "drawio" | "image" | "vsdx"; content: string; mimeType?: string; meta: SessionMeta }) =>
+    req<DiagramImportResult>("POST", "/diagram-import/new", input),
 };

@@ -257,12 +257,12 @@ export function generateIdef0(model: ProcessLogicModel): Idef0Result {
 /** Экспорт диаграммы декомпозиции в упрощённый draw.io (mxGraph) XML. */
 export function idef0ToDrawio(model: ProcessLogicModel, result: Idef0Result): string {
   const cells: string[] = [];
-  let idc = 2;
   for (const b of result.blocks) {
+    // ФТ-М9.4.2: id ячейки несёт id узла PLM ("IDEF0_<nodeId>") — это делает возможным
+    // round-trip импорт правок из draw.io обратно в модель (routes/diagramImport.ts).
     cells.push(
-      `<mxCell id="n${idc}" value="${b.code}: ${escXml(b.name)}" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#1f2937;" vertex="1" parent="1"><mxGeometry x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" as="geometry" /></mxCell>`
+      `<mxCell id="IDEF0_${b.nodeId}" value="${b.code}: ${escXml(b.name)}" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#1f2937;" vertex="1" parent="1"><mxGeometry x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" as="geometry" /></mxCell>`
     );
-    idc++;
   }
   return `<mxfile host="app">
   <diagram name="IDEF0 A0" id="idef0-a0">

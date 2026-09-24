@@ -91,4 +91,10 @@ export interface LLMProvider {
     context: { processName: string; modelType: "AS-IS" | "TO-BE"; fewShotContext?: string },
     opts?: { model?: string }
   ): Promise<ExtractionChunkResult>;
+  /** ФТ-М9.5.2: распознавание схемы (фото/скан) мультимодальной моделью в PLM — есть только у провайдеров с поддержкой изображений. */
+  recognizeDiagramImage?(
+    imageBase64: string,
+    mimeType: string,
+    context: { processName: string; modelType: "AS-IS" | "TO-BE" }
+  ): Promise<ExtractionChunkResult>;
 }

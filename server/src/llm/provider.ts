@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ExtractionChunkResult, LLMFragmentInput, LLMProvider } from "./types.js";
-import { EXTRACTION_SYSTEM_PROMPT, EXTRACTION_TOOL, buildChunkUserPrompt } from "./prompts.js";
+import { EXTRACTION_SYSTEM_PROMPT, EXTRACTION_TOOL, buildChunkUserPrompt, DIAGRAM_RECOGNITION_SYSTEM_PROMPT, buildDiagramRecognitionUserPrompt } from "./prompts.js";
 import { mockExtractChunk } from "./mockProvider.js";
 
 const MODEL_ID = process.env.LLM_MODEL || "claude-sonnet-4-5";
@@ -45,6 +45,34 @@ export class AnthropicProvider implements LLMProvider {
     if (!toolUse) {
       throw new Error("LLM did not return structured tool_use output");
     }
+    return toolUse.input as ExtractionChunkResult;
+  }
+
+  /** ФТ-М9.5.2: распознавание схемы процесса на изображении мультимодальной моделью. */
+  async recognizeDiagramImage(
+    imageBase64: string,
+    mimeType: string,
+    context: { processName: string; modelType: "AS-IS" | "TO-BE" }
+  ): Promise<ExtractionChunkResult> {
+    const msg = await this.client.messages.create({
+      model: MODEL_ID,
+      max_tokens: 4096,
+      temperature: 0,
+      system: DIAGRAM_RECOGNITION_SYSTEM_PROMPT,
+      tools: [EXTRACTION_TOOL as any],
+      tool_choice: { type: "tool", name: "extract_process_chunk" },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mimeType as any, data: imageBase64 } },
+            { type: "text", text: buildDiagramRecognitionUserPrompt(context.processName, context.modelType) },
+          ],
+        },
+      ],
+    });
+    const toolUse = msg.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
+    if (!toolUse) throw new Error("LLM did not return structured tool_use output");
     return toolUse.input as ExtractionChunkResult;
   }
 }

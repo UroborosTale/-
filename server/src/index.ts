@@ -31,6 +31,8 @@ import { technologyRouter } from "./routes/technology.js";
 import { hypothesesRouter } from "./routes/hypotheses.js";
 import { miningRouter } from "./routes/mining.js";
 import { adaptiveDepthRouter } from "./routes/adaptiveDepth.js";
+import { bpmsRouter } from "./routes/bpms.js";
+import { diagramImportRouter } from "./routes/diagramImport.js";
 import "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -86,6 +88,8 @@ app.use("/api", technologyRouter);
 app.use("/api", hypothesesRouter);
 app.use("/api", miningRouter);
 app.use("/api", adaptiveDepthRouter);
+app.use("/api", bpmsRouter);
+app.use("/api", diagramImportRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);
