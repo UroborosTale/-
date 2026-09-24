@@ -1,4 +1,37 @@
-import type { SessionListItem, SessionMeta, SessionRecord, VersionListItem } from "../types";
+import type { SessionListItem, SessionMeta, SessionRecord, VersionListItem, InterviewTrack, SessionRespondent, ChatMessage, Discrepancy } from "../types";
+
+export interface CampaignRespondentStatus {
+  id: string;
+  campaign_id: string;
+  respondent_id: string;
+  track_id: string;
+  token: string;
+  name: string;
+  role_id: string | null;
+  status: "pending" | "in_progress" | "completed";
+  started_at: string | null;
+  completed_at: string | null;
+  last_reminded_at: string | null;
+  overdue: boolean;
+}
+export interface Campaign {
+  id: string;
+  session_id: string;
+  name: string;
+  due_date: string | null;
+  reminder_webhook_url: string | null;
+  created_at: string;
+}
+export interface CampaignStatus {
+  campaign: Campaign;
+  respondents: CampaignRespondentStatus[];
+  coverage: { total: number; completed: number; inProgress: number; notStarted: number };
+}
+export interface VerificationParagraph {
+  id: string;
+  text: string;
+  sourceRefs: string[];
+}
 
 export interface RegistryProcess {
   id: string;
@@ -188,4 +221,56 @@ export const api = {
   setCardSyncConfig: (id: string, webhook_url: string, field_mapping?: Record<string, string>) =>
     req<{ webhook_url: string; field_mapping: Record<string, string> }>("PUT", `/registry/${id}/card/sync-config`, { webhook_url, field_mapping }),
   syncCard: (id: string) => req<{ ok: boolean; status: number }>("POST", `/registry/${id}/card/sync`),
+
+  // --- М4.1 Мультиинтервью ---
+  listRespondents: (id: string) => req<(SessionRespondent & { track: InterviewTrack | null })[]>("GET", `/sessions/${id}/respondents`),
+  addRespondent: (id: string, name: string, mode: "text" | "chat", roleId?: string | null, weight?: number) =>
+    req<{ respondent: SessionRespondent; track: InterviewTrack }>("POST", `/sessions/${id}/respondents`, { name, mode, roleId, weight }),
+  removeRespondent: (id: string, respondentId: string) => req<SessionRecord>("DELETE", `/sessions/${id}/respondents/${respondentId}`),
+  trackIngestText: (id: string, trackId: string, text: string) => req<SessionRecord>("POST", `/sessions/${id}/tracks/${trackId}/ingest-text`, { text }),
+  trackInterviewStart: (id: string, trackId: string) => req<InterviewTrack>("POST", `/sessions/${id}/tracks/${trackId}/interview/start`),
+  trackInterviewTurn: (id: string, trackId: string, text: string) => req<InterviewTrack>("POST", `/sessions/${id}/tracks/${trackId}/interview/turn`, { text }),
+  trackFinish: (id: string, trackId: string) => req<InterviewTrack>("POST", `/sessions/${id}/tracks/${trackId}/finish`),
+  mergeTracks: (id: string) => req<SessionRecord>("POST", `/sessions/${id}/tracks/merge`),
+  listDiscrepancies: (id: string) => req<Discrepancy[]>("GET", `/sessions/${id}/discrepancies`),
+  resolveDiscrepancy: (id: string, discId: string, resolved_value: string) =>
+    req<SessionRecord>("POST", `/sessions/${id}/discrepancies/${discId}/resolve`, { resolved_value }),
+
+  // --- М4.2 Асинхронный сбор (кампании) ---
+  listCampaigns: (id: string) => req<Campaign[]>("GET", `/sessions/${id}/campaigns`),
+  createCampaign: (id: string, name: string, due_date: string | null, respondents: { name: string; roleId?: string | null; weight?: number }[]) =>
+    req<{ campaign: Campaign; respondents: { name: string; roleId: string | null; token: string; link: string }[] }>("POST", `/sessions/${id}/campaigns`, {
+      name,
+      due_date,
+      respondents,
+    }),
+  getCampaignStatus: (campaignId: string) => req<CampaignStatus>("GET", `/campaigns/${campaignId}`),
+  deleteCampaign: (campaignId: string) => req<void>("DELETE", `/campaigns/${campaignId}`),
+  setCampaignReminderWebhook: (campaignId: string, webhook_url: string) =>
+    req<{ webhook_url: string }>("PUT", `/campaigns/${campaignId}/reminder-webhook`, { webhook_url }),
+  sendCampaignReminders: (campaignId: string) =>
+    req<{ overdue: { name: string; status: string }[]; sent: number; note?: string }>("POST", `/campaigns/${campaignId}/remind`),
+
+  // --- М4.2 публичные маршруты по токену (без остальной сессии) ---
+  respondentView: (campaignId: string, token: string) =>
+    req<{ processName: string; respondentName: string; roleId: string | null; chat: ChatMessage[]; status: string }>(
+      "GET",
+      `/campaigns/${campaignId}/respond/${token}`
+    ),
+  respondentTurn: (campaignId: string, token: string, text: string) =>
+    req<{ chat: ChatMessage[]; status: string }>("POST", `/campaigns/${campaignId}/respond/${token}/turn`, { text }),
+  respondentFinish: (campaignId: string, token: string) => req<{ status: string }>("POST", `/campaigns/${campaignId}/respond/${token}/finish`),
+
+  // --- М4.4 Верификация текстом ---
+  verificationPreview: (id: string) => req<{ paragraphs: VerificationParagraph[]; confirmed: string[] }>("GET", `/sessions/${id}/verification/preview`),
+  confirmParagraph: (id: string, paragraphId: string) => req<{ confirmed: string[] }>("POST", `/sessions/${id}/verification/paragraphs/${paragraphId}/confirm`),
+  unconfirmParagraph: (id: string, paragraphId: string) =>
+    req<{ confirmed: string[] }>("POST", `/sessions/${id}/verification/paragraphs/${paragraphId}/unconfirm`),
+  proposeVerificationEdit: (id: string, text: string) => req<{ diff: any; proposedModel: unknown; proposedFragments: unknown; proposedRawText: string }>(
+    "POST",
+    `/sessions/${id}/verification/propose-edit`,
+    { text }
+  ),
+  applyVerificationEdit: (id: string, proposal: { proposedModel: unknown; proposedFragments: unknown; proposedRawText: string }) =>
+    req<SessionRecord>("POST", `/sessions/${id}/verification/apply-edit`, proposal),
 };

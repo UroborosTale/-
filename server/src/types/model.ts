@@ -89,6 +89,7 @@ export const ProcessNode = z.object({
   cost_estimate: z.string().nullable().optional(),
   requirement_ids: z.array(z.string()).default([]), // ссылки на requirements_links / реестр требований (М6)
   tags: z.array(z.string()).default([]), // например: manual_transfer, double_entry — маркеры для антипаттернов М2.3
+  confirmed_by: z.array(z.string()).default([]), // id респондентов, подтвердивших элемент (ФТ-М4.1.2)
 });
 export type ProcessNode = z.infer<typeof ProcessNode>;
 
@@ -98,6 +99,7 @@ export const ProcessFlow = z.object({
   to: z.string(),
   condition: z.string().nullable().optional(),
   source: z.array(SourceRef).default([]),
+  confirmed_by: z.array(z.string()).default([]), // ФТ-М4.1.2
 });
 export type ProcessFlow = z.infer<typeof ProcessFlow>;
 
@@ -185,10 +187,16 @@ export type RaciEntry = z.infer<typeof RaciEntry>;
 // --- PLM v2: респонденты мультиинтервью (М4.1) ---
 export const Respondent = z.object({
   id: z.string(),
+  name: z.string().optional(),
   role_id: z.string().nullable().optional(),
-  session_ids: z.array(z.string()).default([]),
+  session_ids: z.array(z.string()).default([]), // внутренние id "дорожек" интервью (tracks) этого респондента
+  weight: z.number().min(0).default(1), // ФТ-М4.1.5: вес при разрешении конфликтов (исполнитель > руководитель для своего шага)
 });
 export type Respondent = z.infer<typeof Respondent>;
+
+// --- PLM v2: типы расхождений между респондентами (М4.1.3) ---
+export const DiscrepancyKind = z.enum(["step_presence", "executor", "timing", "step_order"]);
+export type DiscrepancyKind = z.infer<typeof DiscrepancyKind>;
 
 // --- PLM v2: расхождения между респондентами (М4.1) ---
 export const DiscrepancyVariant = z.object({
@@ -199,8 +207,11 @@ export const DiscrepancyVariant = z.object({
 export const Discrepancy = z.object({
   id: z.string(),
   element_id: z.string(),
+  kind: DiscrepancyKind.default("step_presence"),
+  question: z.string().default(""), // ФТ-М4.1.4: сгенерированный вопрос для разрешения
   variants: z.array(DiscrepancyVariant).default([]),
   status: z.enum(["open", "resolved"]).default("open"),
+  resolved_value: z.string().nullable().optional(),
 });
 export type Discrepancy = z.infer<typeof Discrepancy>;
 

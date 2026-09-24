@@ -14,8 +14,10 @@ import IngestPanel from "../components/IngestPanel";
 import VersionsPanel from "../components/VersionsPanel";
 import RaciPanel from "../components/RaciPanel";
 import RegulationPanel from "../components/RegulationPanel";
+import MultiInterviewPanel from "../components/MultiInterviewPanel";
+import VerificationPanel from "../components/VerificationPanel";
 
-type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation" | "chat";
+type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation" | "multiInterview" | "verification" | "chat";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -82,6 +84,8 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
     { key: "validation", label: `Валидация${session.validation.length ? ` (${session.validation.length})` : ""}` },
     { key: "raci", label: "RACI" },
     { key: "regulation", label: "Регламент" },
+    { key: "multiInterview", label: "Мультиинтервью" },
+    { key: "verification", label: "Верификация" },
     { key: "versions", label: "Версии" },
     { key: "export", label: "Экспорт" },
   ];
@@ -209,6 +213,9 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
             {tab === "raci" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "regulation" && model && <RegulationPanel session={session} />}
             {tab === "regulation" && !model && <p className="muted">Модель ещё не построена.</p>}
+            {tab === "multiInterview" && <MultiInterviewPanel session={session} onChanged={reload} />}
+            {tab === "verification" && model && <VerificationPanel session={session} onChanged={reload} />}
+            {tab === "verification" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "versions" && <VersionsPanel session={session} onChanged={reload} />}
             {tab === "export" && <ExportsPanel session={session} />}
           </div>

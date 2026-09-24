@@ -88,6 +88,14 @@ const PROPOSAL_MARKERS = ["хотелось бы", "нужно бы", "было 
 const PROBLEM_MARKERS = ["проблема", "неудобно", "долго", "теряется", "ошибк", "приходится", "вручную", "путаниц", "затягива"];
 const CONDITION_MARKERS = ["если", "в случае", "либо", "иначе", "когда"];
 
+// Длительность/срок шага (ФТ-М2.1, ФТ-М4.1.3 "сроки") — простой числовой паттерн
+// "N дней/часов/недель/минут" в той же фразе, что и глагол действия.
+const DURATION_PATTERN = /(\d+(?:[.,]\d+)?)\s*(рабоч(?:их|ий)\s+)?(день|дня|дней|час|часа|часов|недел[юяи]|недель|минут[уы]?|минут)/iu;
+function findDuration(text: string): string | null {
+  const m = DURATION_PATTERN.exec(text);
+  return m ? m[0].trim() : null;
+}
+
 function splitSentences(text: string): string[] {
   return text
     .split(/(?<=[.!?;])\s+/)
@@ -221,6 +229,7 @@ export function mockExtractChunk(
       const role = findWord(sentence, ROLE_WORDS);
       const doc = findWord(sentence, DOC_WORDS);
       const system = findWord(sentence, SYSTEM_WORDS);
+      const duration = findDuration(sentence);
       const uncertain = /обычно|иногда|бывает|как правило/iu.test(sentence);
       const isGateway = CONDITION_MARKERS.some((mk) => sLower.includes(mk));
 
@@ -234,6 +243,7 @@ export function mockExtractChunk(
         input_names: [],
         output_names: doc ? [capitalize(doc)] : [],
         control_names: [],
+        duration,
         order_hint: orderCounter,
         source_fragment_id: frag.id,
         quote: sentence.slice(0, 240),

@@ -15,6 +15,9 @@ import { versionsRouter } from "./routes/versions.js";
 import { raciRouter } from "./routes/raci.js";
 import { regulationRouter } from "./routes/regulation.js";
 import { cardRouter } from "./routes/card.js";
+import { multiInterviewRouter } from "./routes/multiInterview.js";
+import { campaignsRouter } from "./routes/campaigns.js";
+import { verificationRouter } from "./routes/verification.js";
 import "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -54,6 +57,9 @@ app.use("/api", versionsRouter);
 app.use("/api", raciRouter);
 app.use("/api", regulationRouter);
 app.use("/api", cardRouter);
+app.use("/api", multiInterviewRouter);
+app.use("/api", campaignsRouter);
+app.use("/api", verificationRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

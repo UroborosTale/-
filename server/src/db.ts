@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   diagrams_stale INTEGER NOT NULL DEFAULT 0,
   provider TEXT,
   regulation_snapshot_seq INTEGER,
+  respondents_json TEXT NOT NULL DEFAULT '[]',
+  tracks_json TEXT NOT NULL DEFAULT '[]',
+  verification_confirmed_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -91,6 +94,30 @@ CREATE TABLE IF NOT EXISTS role_position_map (
   PRIMARY KEY (role_key, position_key)
 );
 
+-- М4.2: кампании асинхронного сбора интервью
+CREATE TABLE IF NOT EXISTS campaigns (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  due_date TEXT,
+  reminder_webhook_url TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS campaign_respondents (
+  id TEXT PRIMARY KEY,
+  campaign_id TEXT NOT NULL,
+  respondent_id TEXT NOT NULL,
+  track_id TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  role_id TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  started_at TEXT,
+  completed_at TEXT,
+  last_reminded_at TEXT
+);
+
 -- М1.5.2: синхронизация карточки процесса с внешним реестром через коннектор
 -- (генерический вебхук + настраиваемый маппинг полей — без привязки к
 -- конкретному вендору, т.к. в этом окружении нет реальных учётных данных
@@ -108,6 +135,21 @@ CREATE TABLE IF NOT EXISTS card_sync_config (
 // на "duplicate column" — это ожидаемо и безопасно игнорируется.
 try {
   db.exec(`ALTER TABLE sessions ADD COLUMN regulation_snapshot_seq INTEGER`);
+} catch {
+  // колонка уже существует
+}
+try {
+  db.exec(`ALTER TABLE sessions ADD COLUMN respondents_json TEXT NOT NULL DEFAULT '[]'`);
+} catch {
+  // колонка уже существует
+}
+try {
+  db.exec(`ALTER TABLE sessions ADD COLUMN tracks_json TEXT NOT NULL DEFAULT '[]'`);
+} catch {
+  // колонка уже существует
+}
+try {
+  db.exec(`ALTER TABLE sessions ADD COLUMN verification_confirmed_json TEXT NOT NULL DEFAULT '[]'`);
 } catch {
   // колонка уже существует
 }

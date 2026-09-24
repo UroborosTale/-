@@ -61,6 +61,7 @@ export interface ProcessNode {
   cost_estimate?: string | null;
   requirement_ids: string[];
   tags: string[];
+  confirmed_by: string[];
 }
 
 export interface ProcessFlow {
@@ -69,6 +70,7 @@ export interface ProcessFlow {
   to: string;
   condition?: string | null;
   source: SourceRef[];
+  confirmed_by: string[];
 }
 
 export type GapPriority = "critical" | "important" | "desirable";
@@ -140,15 +142,22 @@ export interface RaciEntry {
 
 export interface Respondent {
   id: string;
+  name?: string;
   role_id?: string | null;
   session_ids: string[];
+  weight: number;
 }
+
+export type DiscrepancyKind = "step_presence" | "executor" | "timing" | "step_order";
 
 export interface Discrepancy {
   id: string;
   element_id: string;
+  kind: DiscrepancyKind;
+  question: string;
   variants: { respondent_id: string; value: string; source: SourceRef[] }[];
   status: "open" | "resolved";
+  resolved_value?: string | null;
 }
 
 export interface ProcessLogicModel {
@@ -261,8 +270,29 @@ export interface SessionRecord {
   qa: { gapId: string; question: string; answerText: string; ts: string }[];
   diagramsStale: boolean;
   provider: string | null;
+  regulationSnapshotSeq: number | null;
+  respondents: SessionRespondent[];
+  tracks: InterviewTrack[];
+  verificationConfirmed: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SessionRespondent {
+  id: string;
+  name: string;
+  roleId: string | null;
+  weight: number;
+}
+
+export interface InterviewTrack {
+  id: string;
+  respondentId: string;
+  mode: "text" | "chat";
+  fragments: Fragment[];
+  rawText: string;
+  chat: ChatMessage[];
+  status: "pending" | "in_progress" | "completed";
 }
 
 export interface SessionListItem {

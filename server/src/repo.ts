@@ -30,6 +30,25 @@ export interface Comment {
   ts: string;
 }
 
+/** ФТ-М4.1: участник мультиинтервью в рамках одной сессии моделирования. */
+export interface SessionRespondent {
+  id: string;
+  name: string;
+  roleId: string | null; // подсказка роли для контекста извлечения и веса (ФТ-М4.1.5)
+  weight: number;
+}
+
+/** ФТ-М4.1/М4.2: одна "дорожка" интервью — вклад одного респондента (текст или чат), извлекается независимо и затем сводится в общую модель. */
+export interface InterviewTrack {
+  id: string;
+  respondentId: string;
+  mode: "text" | "chat";
+  fragments: Fragment[];
+  rawText: string;
+  chat: ChatMessage[];
+  status: "pending" | "in_progress" | "completed";
+}
+
 export interface SessionRecord {
   id: string;
   title: string;
@@ -49,6 +68,9 @@ export interface SessionRecord {
   diagramsStale: boolean;
   provider: string | null;
   regulationSnapshotSeq: number | null; // ФТ-М1.1.4: версия, на которую сгенерирован регламент — для отметки устаревших абзацев
+  respondents: SessionRespondent[];
+  tracks: InterviewTrack[];
+  verificationConfirmed: string[]; // ФТ-М4.4.2: id подтверждённых абзацев пересказа
   createdAt: string;
   updatedAt: string;
 }
@@ -73,6 +95,9 @@ function rowToRecord(row: any): SessionRecord {
     diagramsStale: !!row.diagrams_stale,
     provider: row.provider,
     regulationSnapshotSeq: row.regulation_snapshot_seq ?? null,
+    respondents: JSON.parse(row.respondents_json ?? "[]"),
+    tracks: JSON.parse(row.tracks_json ?? "[]"),
+    verificationConfirmed: JSON.parse(row.verification_confirmed_json ?? "[]"),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -120,6 +145,9 @@ export interface SessionUpdate {
   diagramsStale?: boolean;
   provider?: string | null;
   regulationSnapshotSeq?: number | null;
+  respondents?: SessionRespondent[];
+  tracks?: InterviewTrack[];
+  verificationConfirmed?: string[];
 }
 
 export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
@@ -130,7 +158,7 @@ export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
     `UPDATE sessions SET
       title = ?, status = ?, meta_json = ?, fragments_json = ?, raw_text = ?, model_json = ?,
       validation_json = ?, bpmn_xml = ?, idef0_json = ?, chat_json = ?, comments_json = ?, qa_json = ?,
-      diagrams_stale = ?, provider = ?, regulation_snapshot_seq = ?, updated_at = ?
+      diagrams_stale = ?, provider = ?, regulation_snapshot_seq = ?, respondents_json = ?, tracks_json = ?, verification_confirmed_json = ?, updated_at = ?
      WHERE id = ?`
   ).run(
     patch.title ?? current.title,
@@ -148,6 +176,9 @@ export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
     patch.diagramsStale !== undefined ? (patch.diagramsStale ? 1 : 0) : current.diagramsStale ? 1 : 0,
     patch.provider !== undefined ? patch.provider : current.provider,
     patch.regulationSnapshotSeq !== undefined ? patch.regulationSnapshotSeq : current.regulationSnapshotSeq,
+    JSON.stringify(patch.respondents ?? current.respondents),
+    JSON.stringify(patch.tracks ?? current.tracks),
+    JSON.stringify(patch.verificationConfirmed ?? current.verificationConfirmed),
     now,
     id
   );

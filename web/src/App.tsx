@@ -5,16 +5,28 @@ import NewSessionPage from "./pages/NewSessionPage";
 import WorkspacePage from "./pages/WorkspacePage";
 import RegistryPage from "./pages/RegistryPage";
 import GlossaryPage from "./pages/GlossaryPage";
+import RespondentInterviewPage from "./pages/RespondentInterviewPage";
 
 type View = { name: "list" } | { name: "new" } | { name: "workspace"; id: string } | { name: "registry" } | { name: "glossary" };
 
+/** ФТ-М4.2.2: персональная ссылка /campaign/:campaignId/:token — отдельная публичная страница без основной навигации. */
+function matchCampaignRoute(): { campaignId: string; token: string } | null {
+  const m = window.location.pathname.match(/^\/campaign\/([^/]+)\/([^/]+)\/?$/);
+  return m ? { campaignId: m[1], token: m[2] } : null;
+}
+
 export default function App() {
+  const campaignRoute = matchCampaignRoute();
   const [view, setView] = useState<View>({ name: "list" });
   const [provider, setProvider] = useState<{ name: string; live: boolean } | null>(null);
 
   useEffect(() => {
     api.providerStatus().then(setProvider).catch(() => setProvider(null));
   }, []);
+
+  if (campaignRoute) {
+    return <RespondentInterviewPage campaignId={campaignRoute.campaignId} token={campaignRoute.token} />;
+  }
 
   return (
     <div className="app-shell">

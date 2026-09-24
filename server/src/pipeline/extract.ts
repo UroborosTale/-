@@ -162,6 +162,7 @@ export async function extractModel(
         source: [{ fragment_id: n.source_fragment_id, quote: n.quote }],
         requirement_ids: [],
         tags: [],
+        confirmed_by: [],
       };
       nodes.push(node);
       orderToNodeId.set(n.order_hint, nodeId);
@@ -181,6 +182,7 @@ export async function extractModel(
         to,
         condition: fl.condition ?? null,
         source: [{ fragment_id: fl.source_fragment_id, quote: fl.quote }],
+        confirmed_by: [],
       });
     }
 
@@ -207,7 +209,7 @@ export async function extractModel(
     const b = nodes[i + 1].id;
     const hasAnyOutgoing = flows.some((f) => f.from === a);
     if (!hasAnyOutgoing) {
-      flows.push({ id: `flow${flows.length + 1}`, from: a, to: b, condition: null, source: [] });
+      flows.push({ id: `flow${flows.length + 1}`, from: a, to: b, condition: null, source: [], confirmed_by: [] });
     }
   }
 

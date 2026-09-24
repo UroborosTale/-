@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, logAudit } from "../db.js";
+import { validateWebhookUrl } from "../util/webhook.js";
 
 export const cardRouter = Router();
 
@@ -79,23 +80,9 @@ cardRouter.put("/registry/:id/card/sync-config", (req, res) => {
     res.status(400).json({ error: "webhook_url is required" });
     return;
   }
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(webhook_url);
-  } catch {
-    res.status(400).json({ error: "webhook_url is not a valid URL" });
-    return;
-  }
-  if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-    res.status(400).json({ error: "webhook_url must use http or https" });
-    return;
-  }
-  // Базовая защита от SSRF на внутренние/служебные адреса (localhost, link-local
-  // метаданные облака). Не полноценная защита (без резолва DNS/редиректов),
-  // но отсекает очевидные случаи для этого генерического коннектора.
-  const blockedHosts = /^(localhost|127\.|0\.0\.0\.0|::1|169\.254\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i;
-  if (blockedHosts.test(parsedUrl.hostname)) {
-    res.status(400).json({ error: "webhook_url указывает на внутренний/служебный адрес — запрещено" });
+  const check = validateWebhookUrl(webhook_url);
+  if (!check.ok) {
+    res.status(400).json({ error: check.error });
     return;
   }
   db.prepare(
