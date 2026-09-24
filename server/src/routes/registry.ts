@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, logAudit } from "../db.js";
 import { nanoid } from "nanoid";
 import * as XLSX from "xlsx";
+import { detectDuplicates } from "../pipeline/duplicates.js";
 
 export const registryRouter = Router();
 
@@ -70,6 +71,73 @@ registryRouter.get("/registry", (req, res) => {
 registryRouter.get("/registry/links", (_req, res) => {
   const rows = db.prepare(`SELECT * FROM process_links ORDER BY created_at DESC`).all();
   res.json(rows);
+});
+
+/** ФТ-М3.3: карта процессов — узлы реестра (с иерархией L0-L3) и подтверждённые связи между ними. */
+registryRouter.get("/registry/map", (_req, res) => {
+  const nodes = (db.prepare(`SELECT id, code, name, level, parent_process_id, classification, status FROM processes ORDER BY level, name`).all() as any[]).map(
+    (r) => ({ id: r.id, code: r.code, name: r.name, level: r.level, parentProcessId: r.parent_process_id, classification: r.classification, status: r.status })
+  );
+  const edges = (db.prepare(`SELECT id, from_process_id, to_process_id, data_label, confirmed FROM process_links WHERE confirmed = 1`).all() as any[]).map((r) => ({
+    id: r.id,
+    from: r.from_process_id,
+    to: r.to_process_id,
+    label: r.data_label,
+  }));
+  res.json({ nodes, edges });
+});
+
+/** ФТ-М3.4: кандидаты в дубли реестра — эвристика по схожести названий (без учёта уже отклонённых пар). */
+registryRouter.get("/registry/duplicates", (_req, res) => {
+  const processes = db.prepare(`SELECT id, name, classification, department, level FROM processes`).all() as {
+    id: string;
+    name: string;
+    classification: string;
+    department: string | null;
+    level: string;
+  }[];
+  const dismissed = new Set(
+    (db.prepare(`SELECT from_process_id, to_process_id FROM duplicate_dismissals`).all() as { from_process_id: string; to_process_id: string }[]).map((d) =>
+      [d.from_process_id, d.to_process_id].sort().join("|")
+    )
+  );
+  res.json(detectDuplicates(processes, dismissed));
+});
+
+registryRouter.post("/registry/duplicates/dismiss", (req, res) => {
+  const { aId, bId } = req.body as { aId: string; bId: string };
+  if (!aId || !bId) {
+    res.status(400).json({ error: "aId and bId are required" });
+    return;
+  }
+  db.prepare(`INSERT OR IGNORE INTO duplicate_dismissals (from_process_id, to_process_id, created_at) VALUES (?, ?, ?)`).run(aId, bId, new Date().toISOString());
+  logAudit(null, "analyst", "duplicate_dismissed", { aId, bId });
+  res.status(204).end();
+});
+
+/** ФТ-М6.5: проверка актуальности реестра — просроченные даты планового пересмотра. */
+registryRouter.get("/registry/staleness", (_req, res) => {
+  const rows = db.prepare(`SELECT id, name, review_date, status, updated_at FROM processes`).all() as {
+    id: string;
+    name: string;
+    review_date: string | null;
+    status: string;
+    updated_at: string;
+  }[];
+  const today = new Date();
+  const result = rows.map((r) => {
+    let reviewOverdue = false;
+    let daysOverdue = 0;
+    if (r.review_date) {
+      const reviewDate = new Date(r.review_date);
+      if (!Number.isNaN(reviewDate.getTime()) && reviewDate.getTime() < today.getTime()) {
+        reviewOverdue = true;
+        daysOverdue = Math.floor((today.getTime() - reviewDate.getTime()) / 86400000);
+      }
+    }
+    return { processId: r.id, name: r.name, status: r.status, reviewDate: r.review_date, reviewOverdue, daysOverdue, updatedAt: r.updated_at };
+  });
+  res.json(result.filter((r) => r.reviewOverdue || !r.reviewDate));
 });
 
 registryRouter.get("/registry/:id", (req, res) => {

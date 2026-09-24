@@ -19,8 +19,12 @@ import VerificationPanel from "../components/VerificationPanel";
 import ReviewPanel from "../components/ReviewPanel";
 import AnalyticsPanel from "../components/AnalyticsPanel";
 import ChecklistPanel from "../components/ChecklistPanel";
+import TraceabilityPanel from "../components/TraceabilityPanel";
+import JobDescriptionsPanel from "../components/JobDescriptionsPanel";
 
-type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation" | "multiInterview" | "verification" | "review" | "analytics" | "checklist" | "chat";
+type Tab =
+  | "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation"
+  | "multiInterview" | "verification" | "review" | "analytics" | "checklist" | "traceability" | "jobDescriptions" | "chat";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -88,6 +92,8 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
     { key: "raci", label: "RACI" },
     { key: "analytics", label: "Аналитика" },
     { key: "checklist", label: "Чек-лист" },
+    { key: "traceability", label: "Трассировка требований" },
+    { key: "jobDescriptions", label: "Должностные инструкции" },
     { key: "regulation", label: "Регламент" },
     { key: "multiInterview", label: "Мультиинтервью" },
     { key: "verification", label: "Верификация" },
@@ -221,6 +227,10 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
             {tab === "analytics" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "checklist" && model && <ChecklistPanel session={session} />}
             {tab === "checklist" && !model && <p className="muted">Модель ещё не построена.</p>}
+            {tab === "traceability" && model && <TraceabilityPanel session={session} onChanged={reload} />}
+            {tab === "traceability" && !model && <p className="muted">Модель ещё не построена.</p>}
+            {tab === "jobDescriptions" && model && <JobDescriptionsPanel session={session} />}
+            {tab === "jobDescriptions" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "regulation" && model && <RegulationPanel session={session} />}
             {tab === "regulation" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "multiInterview" && <MultiInterviewPanel session={session} onChanged={reload} />}

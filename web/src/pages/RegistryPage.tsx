@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type RegistryProcess, type ProcessLink, type ProcessCard } from "../api/client";
+import { api, type RegistryProcess, type ProcessLink, type ProcessCard, type RegistryMap, type DuplicateCandidate, type StalenessRow } from "../api/client";
 import type { SessionListItem } from "../types";
 
 const LEVEL_LABEL: Record<string, string> = { L0: "L0 — группа процессов", L1: "L1 — процесс", L2: "L2 — подпроцесс", L3: "L3 — процедура" };
@@ -12,7 +12,7 @@ export default function RegistryPage() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [filters, setFilters] = useState<{ level?: string; classification?: string; department?: string; status?: string; q?: string }>({});
   const [showNew, setShowNew] = useState(false);
-  const [tab, setTab] = useState<"registry" | "links">("registry");
+  const [tab, setTab] = useState<"registry" | "links" | "map" | "duplicates" | "staleness">("registry");
   const [links, setLinks] = useState<ProcessLink[]>([]);
   const [suggestions, setSuggestions] = useState<{ from_process_id: string; to_process_id: string; data_label: string }[]>([]);
   const [gaps, setGaps] = useState<{ processId: string; name: string; unconsumedOutputs: string[]; unproducedInputs: string[] }[]>([]);
@@ -48,6 +48,9 @@ export default function RegistryPage() {
         <div className="spacer" />
         <button onClick={() => setTab("registry")} className={tab === "registry" ? "active" : ""}>Реестр</button>
         <button onClick={() => setTab("links")} className={tab === "links" ? "active" : ""}>Связи и разрывы</button>
+        <button onClick={() => setTab("map")} className={tab === "map" ? "active" : ""}>Карта</button>
+        <button onClick={() => setTab("duplicates")} className={tab === "duplicates" ? "active" : ""}>Дубли</button>
+        <button onClick={() => setTab("staleness")} className={tab === "staleness" ? "active" : ""}>Актуальность</button>
         {tab === "registry" && (
           <>
             <a href={api.registryExportXlsxUrl()} target="_blank" rel="noreferrer"><button>Экспорт .xlsx</button></a>
@@ -163,7 +166,138 @@ export default function RegistryPage() {
         </div>
       )}
 
+      {tab === "map" && <MapTab />}
+      {tab === "duplicates" && <DuplicatesTab />}
+      {tab === "staleness" && <StalenessTab />}
+
       {cardId && <CardModal processId={cardId} onClose={() => setCardId(null)} />}
+    </div>
+  );
+}
+
+const LEVEL_ROW: Record<string, number> = { L0: 0, L1: 1, L2: 2, L3: 3 };
+
+/** ФТ-М3.3: карта процессов — узлы по уровням L0-L3, подтверждённые связи между ними. */
+function MapTab() {
+  const [map, setMap] = useState<RegistryMap | null>(null);
+
+  useEffect(() => {
+    api.getRegistryMap().then(setMap);
+  }, []);
+
+  if (!map) return <p className="muted" style={{ marginTop: 12 }}>Загрузка…</p>;
+  if (map.nodes.length === 0) return <p className="muted" style={{ marginTop: 12 }}>Реестр пуст — карту строить не из чего.</p>;
+
+  const byLevel = new Map<number, typeof map.nodes>();
+  for (const n of map.nodes) {
+    const row = LEVEL_ROW[n.level] ?? 2;
+    byLevel.set(row, [...(byLevel.get(row) ?? []), n]);
+  }
+  const rowH = 90;
+  const colW = 220;
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const [row, nodes] of byLevel) {
+    nodes.forEach((n, i) => positions.set(n.id, { x: 40 + i * colW, y: 30 + row * rowH }));
+  }
+  const width = Math.max(600, colW * Math.max(...[...byLevel.values()].map((v) => v.length)) + 80);
+  const height = 30 + (Math.max(...byLevel.keys()) + 1) * rowH + 40;
+
+  return (
+    <div style={{ marginTop: 12, overflowX: "auto" }}>
+      <p className="muted" style={{ fontSize: 12 }}>Узлы сгруппированы по уровню (L0-L3), стрелки — подтверждённые связи между процессами (вход/выход).</p>
+      <svg width={width} height={height} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6 }}>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8" />
+          </marker>
+        </defs>
+        {map.edges.map((e) => {
+          const from = positions.get(e.from);
+          const to = positions.get(e.to);
+          if (!from || !to) return null;
+          const x1 = from.x + 80;
+          const y1 = from.y + 20;
+          const x2 = to.x + 80;
+          const y2 = to.y + 20;
+          return (
+            <g key={e.id}>
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth={1.5} markerEnd="url(#arrow)" />
+              <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 4} fontSize={10} fill="#64748b" textAnchor="middle">{e.label}</text>
+            </g>
+          );
+        })}
+        {map.nodes.map((n) => {
+          const pos = positions.get(n.id);
+          if (!pos) return null;
+          return (
+            <g key={n.id} transform={`translate(${pos.x},${pos.y})`}>
+              <rect width={160} height={40} rx={6} fill="#eff6ff" stroke="#2A57A3" strokeWidth={1} />
+              <text x={80} y={17} fontSize={11} fontWeight={600} textAnchor="middle" fill="#111827">{n.name.length > 26 ? n.name.slice(0, 24) + "…" : n.name}</text>
+              <text x={80} y={31} fontSize={9} textAnchor="middle" fill="#64748b">{n.level} · {n.status}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/** ФТ-М3.4: кандидаты в дубли реестра — эвристика по схожести названий. */
+function DuplicatesTab() {
+  const [candidates, setCandidates] = useState<DuplicateCandidate[] | null>(null);
+
+  async function reload() {
+    setCandidates(await api.getDuplicates());
+  }
+  useEffect(() => {
+    reload();
+  }, []);
+
+  if (!candidates) return <p className="muted" style={{ marginTop: 12 }}>Загрузка…</p>;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <p className="muted" style={{ fontSize: 12 }}>
+        Автоматически найденные кандидаты в дубли по схожести названий (и совпадению классификации/подразделения). Требует решения аналитика — слияние не выполняется автоматически.
+      </p>
+      {candidates.length === 0 && <p className="muted">Кандидатов не найдено.</p>}
+      {candidates.map((c) => (
+        <div key={`${c.aId}-${c.bId}`} className="validation-item warning" style={{ marginBottom: 8 }}>
+          <strong>{c.aName}</strong> ↔ <strong>{c.bName}</strong> — совпадение {(c.score * 100).toFixed(0)}%
+          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{c.reason}</div>
+          <button style={{ marginTop: 6 }} onClick={async () => { await api.dismissDuplicate(c.aId, c.bId); reload(); }}>Не дубль</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** ФТ-М6.5: проверка актуальности — просроченные/не назначенные даты планового пересмотра. */
+function StalenessTab() {
+  const [rows, setRows] = useState<StalenessRow[] | null>(null);
+
+  useEffect(() => {
+    api.getRegistryStaleness().then(setRows);
+  }, []);
+
+  if (!rows) return <p className="muted" style={{ marginTop: 12 }}>Загрузка…</p>;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <p className="muted" style={{ fontSize: 12 }}>Процессы без назначенной даты планового пересмотра или с просроченной датой (ISO 9001, п. 4.4.1.g).</p>
+      {rows.length === 0 && <p className="muted">Все процессы актуальны.</p>}
+      <table className="mono" style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+        <thead><tr style={{ textAlign: "left" }}><th>Процесс</th><th>Дата пересмотра</th><th>Статус</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.processId} style={{ borderTop: "1px solid #e5e7eb" }}>
+              <td>{r.name}</td>
+              <td>{r.reviewDate ?? <span className="muted">не назначена</span>}</td>
+              <td>{r.reviewOverdue ? <span style={{ color: "#dc2626" }}>просрочено на {r.daysOverdue} дн.</span> : <span className="muted">требует назначения даты</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

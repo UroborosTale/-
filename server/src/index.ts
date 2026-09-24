@@ -24,6 +24,9 @@ import { notificationsRouter } from "./routes/notifications.js";
 import { analyticsRouter } from "./routes/analytics.js";
 import { requirementsRouter } from "./routes/requirements.js";
 import { checklistRouter } from "./routes/checklist.js";
+import { traceabilityRouter } from "./routes/traceability.js";
+import { auditRouter } from "./routes/audit.js";
+import { jobDescriptionRouter } from "./routes/jobDescription.js";
 import "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -72,6 +75,9 @@ app.use("/api", notificationsRouter);
 app.use("/api", analyticsRouter);
 app.use("/api", requirementsRouter);
 app.use("/api", checklistRouter);
+app.use("/api", traceabilityRouter);
+app.use("/api", auditRouter);
+app.use("/api", jobDescriptionRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

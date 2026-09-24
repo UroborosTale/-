@@ -1,4 +1,4 @@
-import type { SessionListItem, SessionMeta, SessionRecord, VersionListItem, InterviewTrack, SessionRespondent, ChatMessage, Discrepancy, SourceRef, Gap } from "../types";
+import type { SessionListItem, SessionMeta, SessionRecord, VersionListItem, InterviewTrack, SessionRespondent, ChatMessage, Discrepancy, SourceRef, Gap, RequirementLink } from "../types";
 
 export interface CampaignRespondentStatus {
   id: string;
@@ -227,6 +227,73 @@ export interface ChecklistRuleResult {
 export interface ChecklistResult {
   compliancePercent: number;
   results: ChecklistRuleResult[];
+}
+
+// --- М3.3 Карта процессов ---
+export interface RegistryMapNode {
+  id: string;
+  code: string | null;
+  name: string;
+  level: string;
+  parentProcessId: string | null;
+  classification: string;
+  status: string;
+}
+export interface RegistryMapEdge {
+  id: string;
+  from: string;
+  to: string;
+  label: string;
+}
+export interface RegistryMap {
+  nodes: RegistryMapNode[];
+  edges: RegistryMapEdge[];
+}
+
+// --- М3.4 Поиск дублей ---
+export interface DuplicateCandidate {
+  aId: string;
+  aName: string;
+  bId: string;
+  bName: string;
+  score: number;
+  reason: string;
+}
+
+// --- М6.5 Проверка актуальности ---
+export interface StalenessRow {
+  processId: string;
+  name: string;
+  status: string;
+  reviewDate: string | null;
+  reviewOverdue: boolean;
+  daysOverdue: number;
+  updatedAt: string;
+}
+
+// --- М6.3 Трассировка требований ---
+export interface TraceabilityRequirementRow {
+  requirementId: string;
+  code: string;
+  title: string;
+  linkedElementIds: string[];
+  coverage: "full" | "partial" | "none";
+}
+export interface TraceabilityReport {
+  requirements: TraceabilityRequirementRow[];
+  coveragePercent: number;
+  uncoveredRequirementIds: string[];
+  unlinkedElementIds: string[];
+}
+
+// --- М6.4 Аудит-трейл ---
+export interface AuditLogRow {
+  id: number;
+  sessionId: string | null;
+  actor: string;
+  action: string;
+  details: unknown;
+  ts: string;
 }
 
 const BASE = "/api";
@@ -466,4 +533,35 @@ export const api = {
   listChecklistRules: () => req<ChecklistRuleRow[]>("GET", "/checklist-rules"),
   setChecklistRuleEnabled: (id: string, enabled: boolean) => req<ChecklistRuleRow>("PATCH", `/checklist-rules/${id}`, { enabled }),
   getChecklist: (id: string) => req<ChecklistResult>("GET", `/sessions/${id}/checklist`),
+
+  // --- М3.3 Карта процессов ---
+  getRegistryMap: () => req<RegistryMap>("GET", "/registry/map"),
+
+  // --- М3.4 Поиск дублей ---
+  getDuplicates: () => req<DuplicateCandidate[]>("GET", "/registry/duplicates"),
+  dismissDuplicate: (aId: string, bId: string) => req<void>("POST", "/registry/duplicates/dismiss", { aId, bId }),
+
+  // --- М6.5 Проверка актуальности ---
+  getRegistryStaleness: () => req<StalenessRow[]>("GET", "/registry/staleness"),
+
+  // --- М6.3 Трассировка требований ---
+  listRequirementsLinks: (id: string) => req<RequirementLink[]>("GET", `/sessions/${id}/requirements-links`),
+  addRequirementsLink: (id: string, requirement_id: string, element_id: string, coverage?: "full" | "partial") =>
+    req<SessionRecord>("POST", `/sessions/${id}/requirements-links`, { requirement_id, element_id, coverage }),
+  removeRequirementsLink: (id: string, requirement_id: string, element_id: string) =>
+    req<SessionRecord>("DELETE", `/sessions/${id}/requirements-links`, { requirement_id, element_id }),
+  getTraceability: (id: string) => req<TraceabilityReport>("GET", `/sessions/${id}/traceability`),
+
+  // --- М6.4 Аудит-трейл ---
+  listAuditLog: (filters?: { session_id?: string; actor?: string; action?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (filters) for (const [k, v] of Object.entries(filters)) if (v !== undefined && v !== "") params.set(k, String(v));
+    const qs = params.toString();
+    return req<AuditLogRow[]>("GET", `/audit-log${qs ? `?${qs}` : ""}`);
+  },
+
+  // --- М1.2 Должностные инструкции ---
+  jobDescriptionPreviewUrl: (id: string, roleId: string) => `${BASE}/sessions/${id}/job-description/${roleId}/preview`,
+  jobDescriptionExportHtmlUrl: (id: string, roleId: string) => `${BASE}/sessions/${id}/job-description/${roleId}/export.html`,
+  jobDescriptionExportDocxUrl: (id: string, roleId: string) => `${BASE}/sessions/${id}/job-description/${roleId}/export.docx`,
 };

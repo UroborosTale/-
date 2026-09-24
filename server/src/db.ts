@@ -163,6 +163,14 @@ CREATE TABLE IF NOT EXISTS checklist_rules (
   enabled INTEGER NOT NULL DEFAULT 1
 );
 
+-- М3.4: отклонённые аналитиком кандидаты в дубли (чтобы не предлагать повторно)
+CREATE TABLE IF NOT EXISTS duplicate_dismissals (
+  from_process_id TEXT NOT NULL,
+  to_process_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (from_process_id, to_process_id)
+);
+
 -- М1.5.2: синхронизация карточки процесса с внешним реестром через коннектор
 -- (генерический вебхук + настраиваемый маппинг полей — без привязки к
 -- конкретному вендору, т.к. в этом окружении нет реальных учётных данных
