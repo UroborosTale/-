@@ -39,6 +39,29 @@ export interface PositionRow {
   department: string | null;
 }
 
+export interface RegulationStaleness {
+  generatedAtSeq: number | null;
+  currentSeq: number | null;
+  staleCount: number;
+  staleParagraphIds: string[];
+}
+
+export interface ProcessCard {
+  id: string;
+  code: string | null;
+  name: string;
+  level: string;
+  classification: string;
+  owner: string | null;
+  department: string | null;
+  status: string;
+  version: string;
+  review_date: string | null;
+  session_id: string | null;
+  kpi: { id: string; name: string; target?: string | null; unit?: string | null }[];
+  links: Record<string, string>;
+}
+
 const BASE = "/api";
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -143,4 +166,26 @@ export const api = {
   addRolePositionMap: (role_key: string, position_key: string) => req<void>("POST", "/role-position-map", { role_key, position_key }),
   removeRolePositionMap: (role_key: string, position_key: string) => req<void>("DELETE", "/role-position-map", { role_key, position_key }),
   importOrgStructureCsv: (csv: string) => req<{ positions: number; departments: number; mappings: number }>("POST", "/glossary/import-orgstructure", { csv }),
+
+  // --- М1.3 RACI ---
+  buildRaci: (id: string) => req<SessionRecord>("POST", `/sessions/${id}/raci/build`),
+  addRaciEntry: (id: string, node_id: string, role_id: string, type: "R" | "A" | "C" | "I") =>
+    req<SessionRecord>("POST", `/sessions/${id}/raci/entries`, { node_id, role_id, type }),
+  removeRaciEntry: (id: string, node_id: string, role_id: string, type: "R" | "A" | "C" | "I") =>
+    req<SessionRecord>("DELETE", `/sessions/${id}/raci/entries`, { node_id, role_id, type }),
+  raciExportXlsxUrl: (id: string) => `${BASE}/sessions/${id}/raci/export/xlsx`,
+
+  // --- М1.1 Регламент ---
+  regulationPreviewUrl: (id: string, structureOnly?: boolean) => `${BASE}/sessions/${id}/regulation/preview${structureOnly ? "?structureOnly=1" : ""}`,
+  regulationExportHtmlUrl: (id: string, structureOnly?: boolean) => `${BASE}/sessions/${id}/regulation/export.html${structureOnly ? "?structureOnly=1" : ""}`,
+  regulationExportDocxUrl: (id: string, structureOnly?: boolean) => `${BASE}/sessions/${id}/regulation/export.docx${structureOnly ? "?structureOnly=1" : ""}`,
+  regulationStaleness: (id: string) => req<RegulationStaleness>("GET", `/sessions/${id}/regulation/staleness`),
+  markRegulationGenerated: (id: string) => req<{ regulationSnapshotSeq: number | null }>("POST", `/sessions/${id}/regulation/mark-generated`),
+
+  // --- М1.5 Карточка процесса ---
+  getProcessCard: (id: string) => req<ProcessCard>("GET", `/registry/${id}/card`),
+  getCardSyncConfig: (id: string) => req<{ webhook_url: string | null; field_mapping: Record<string, string>; last_synced_at: string | null }>("GET", `/registry/${id}/card/sync-config`),
+  setCardSyncConfig: (id: string, webhook_url: string, field_mapping?: Record<string, string>) =>
+    req<{ webhook_url: string; field_mapping: Record<string, string> }>("PUT", `/registry/${id}/card/sync-config`, { webhook_url, field_mapping }),
+  syncCard: (id: string) => req<{ ok: boolean; status: number }>("POST", `/registry/${id}/card/sync`),
 };

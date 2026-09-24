@@ -5,6 +5,23 @@ import { logAudit } from "../db.js";
 
 export const versionsRouter = Router();
 
+/**
+ * Каноническая сериализация с рекурсивной сортировкой ключей объектов —
+ * нужна для СРАВНЕНИЯ на равенство. Обычный JSON.stringify чувствителен
+ * к порядку ключей: два семантически идентичных объекта, построенных
+ * разными путями (например, один — через zod .parse() с default-заполнением,
+ * другой — как есть из PUT-запроса), могут дать разные строки и ложно
+ * считаться "изменёнными".
+ */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    const keys = Object.keys(value as Record<string, unknown>).sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 /** М7.1: список версий модели (без полного слепка модели — только метаданные). */
 versionsRouter.get("/sessions/:id/versions", (req, res) => {
   const session = getSession(req.params.id);
@@ -63,7 +80,7 @@ versionsRouter.post("/sessions/:id/versions/:seq/rollback", (req, res) => {
   }
 });
 
-function diffModels(a: ProcessLogicModel, b: ProcessLogicModel) {
+export function diffModels(a: ProcessLogicModel, b: ProcessLogicModel) {
   function diffList<T extends { id: string }>(an: T[], bn: T[]) {
     const aById = new Map(an.map((x) => [x.id, x] as const));
     const bById = new Map(bn.map((x) => [x.id, x] as const));
@@ -72,12 +89,12 @@ function diffModels(a: ProcessLogicModel, b: ProcessLogicModel) {
     const changed: { id: string; before: T; after: T }[] = [];
     for (const [id, av] of aById) {
       const bv = bById.get(id);
-      if (bv && JSON.stringify(av) !== JSON.stringify(bv)) changed.push({ id, before: av, after: bv });
+      if (bv && stableStringify(av) !== stableStringify(bv)) changed.push({ id, before: av, after: bv });
     }
     return { added, removed, changed };
   }
   return {
-    process: JSON.stringify(a.process) !== JSON.stringify(b.process) ? { before: a.process, after: b.process } : null,
+    process: stableStringify(a.process) !== stableStringify(b.process) ? { before: a.process, after: b.process } : null,
     nodes: diffList(a.nodes, b.nodes),
     flows: diffList(a.flows, b.flows),
     roles: diffList(a.roles, b.roles),

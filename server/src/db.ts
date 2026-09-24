@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   qa_json TEXT NOT NULL DEFAULT '[]',
   diagrams_stale INTEGER NOT NULL DEFAULT 0,
   provider TEXT,
+  regulation_snapshot_seq INTEGER,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -89,7 +90,27 @@ CREATE TABLE IF NOT EXISTS role_position_map (
   position_key TEXT NOT NULL,
   PRIMARY KEY (role_key, position_key)
 );
+
+-- М1.5.2: синхронизация карточки процесса с внешним реестром через коннектор
+-- (генерический вебхук + настраиваемый маппинг полей — без привязки к
+-- конкретному вендору, т.к. в этом окружении нет реальных учётных данных
+-- внешней системы для интеграции).
+CREATE TABLE IF NOT EXISTS card_sync_config (
+  process_id TEXT PRIMARY KEY,
+  webhook_url TEXT NOT NULL,
+  field_mapping_json TEXT NOT NULL DEFAULT '{}',
+  last_synced_at TEXT
+);
 `);
+
+// Миграция для БД, созданных до появления regulation_snapshot_seq (ФТ-М1.1.4):
+// на новой БД колонка уже есть из CREATE TABLE выше, ALTER тогда просто падает
+// на "duplicate column" — это ожидаемо и безопасно игнорируется.
+try {
+  db.exec(`ALTER TABLE sessions ADD COLUMN regulation_snapshot_seq INTEGER`);
+} catch {
+  // колонка уже существует
+}
 
 export function logAudit(sessionId: string | null, actor: string, action: string, details?: unknown) {
   db.prepare(

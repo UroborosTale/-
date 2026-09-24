@@ -48,6 +48,7 @@ export interface SessionRecord {
   qa: { gapId: string; question: string; answerText: string; ts: string }[];
   diagramsStale: boolean;
   provider: string | null;
+  regulationSnapshotSeq: number | null; // ФТ-М1.1.4: версия, на которую сгенерирован регламент — для отметки устаревших абзацев
   createdAt: string;
   updatedAt: string;
 }
@@ -71,6 +72,7 @@ function rowToRecord(row: any): SessionRecord {
     qa: JSON.parse(row.qa_json),
     diagramsStale: !!row.diagrams_stale,
     provider: row.provider,
+    regulationSnapshotSeq: row.regulation_snapshot_seq ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -117,6 +119,7 @@ export interface SessionUpdate {
   qa?: SessionRecord["qa"];
   diagramsStale?: boolean;
   provider?: string | null;
+  regulationSnapshotSeq?: number | null;
 }
 
 export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
@@ -127,7 +130,7 @@ export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
     `UPDATE sessions SET
       title = ?, status = ?, meta_json = ?, fragments_json = ?, raw_text = ?, model_json = ?,
       validation_json = ?, bpmn_xml = ?, idef0_json = ?, chat_json = ?, comments_json = ?, qa_json = ?,
-      diagrams_stale = ?, provider = ?, updated_at = ?
+      diagrams_stale = ?, provider = ?, regulation_snapshot_seq = ?, updated_at = ?
      WHERE id = ?`
   ).run(
     patch.title ?? current.title,
@@ -144,6 +147,7 @@ export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
     JSON.stringify(patch.qa ?? current.qa),
     patch.diagramsStale !== undefined ? (patch.diagramsStale ? 1 : 0) : current.diagramsStale ? 1 : 0,
     patch.provider !== undefined ? patch.provider : current.provider,
+    patch.regulationSnapshotSeq !== undefined ? patch.regulationSnapshotSeq : current.regulationSnapshotSeq,
     now,
     id
   );

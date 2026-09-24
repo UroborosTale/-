@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type RegistryProcess, type ProcessLink } from "../api/client";
+import { api, type RegistryProcess, type ProcessLink, type ProcessCard } from "../api/client";
 import type { SessionListItem } from "../types";
 
 const LEVEL_LABEL: Record<string, string> = { L0: "L0 — группа процессов", L1: "L1 — процесс", L2: "L2 — подпроцесс", L3: "L3 — процедура" };
@@ -16,6 +16,7 @@ export default function RegistryPage() {
   const [links, setLinks] = useState<ProcessLink[]>([]);
   const [suggestions, setSuggestions] = useState<{ from_process_id: string; to_process_id: string; data_label: string }[]>([]);
   const [gaps, setGaps] = useState<{ processId: string; name: string; unconsumedOutputs: string[]; unproducedInputs: string[] }[]>([]);
+  const [cardId, setCardId] = useState<string | null>(null);
 
   async function reload() {
     setRows(await api.listRegistry(filters));
@@ -103,6 +104,7 @@ export default function RegistryPage() {
                   </td>
                   <td>v{r.version}</td>
                   <td>
+                    <button onClick={() => setCardId(r.id)}>Карточка</button>{" "}
                     <button onClick={async () => { if (confirm(`Удалить «${r.name}» из реестра?`)) { await api.deleteRegistryProcess(r.id); reload(); } }}>✕</button>
                   </td>
                 </tr>
@@ -160,6 +162,121 @@ export default function RegistryPage() {
           ))}
         </div>
       )}
+
+      {cardId && <CardModal processId={cardId} onClose={() => setCardId(null)} />}
+    </div>
+  );
+}
+
+function CardModal({ processId, onClose }: { processId: string; onClose: () => void }) {
+  const [card, setCard] = useState<ProcessCard | null>(null);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [mappingText, setMappingText] = useState("{}");
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.getProcessCard(processId).then(setCard);
+    api.getCardSyncConfig(processId).then((cfg) => {
+      setWebhookUrl(cfg.webhook_url ?? "");
+      setMappingText(JSON.stringify(cfg.field_mapping ?? {}, null, 2));
+      setLastSynced(cfg.last_synced_at);
+    });
+  }, [processId]);
+
+  const LINK_LABEL: Record<string, string> = {
+    bpmn: "BPMN 2.0 (.bpmn)",
+    idef0_decomposition: "IDEF0 декомпозиция (.svg)",
+    model_json: "Модель (.json)",
+    regulation_docx: "Регламент (.docx)",
+    raci_xlsx: "Матрица RACI (.xlsx)",
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }} onClick={onClose}>
+      <div className="card" style={{ width: 560, maxHeight: "85vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+        {!card ? (
+          <p className="muted">Загрузка…</p>
+        ) : (
+          <>
+            <div className="toolbar">
+              <h3 style={{ margin: 0 }}>{card.name}</h3>
+              <div className="spacer" />
+              <button onClick={onClose}>✕</button>
+            </div>
+            <table className="mono" style={{ fontSize: 13, marginTop: 8 }}>
+              <tbody>
+                <tr><td className="muted" style={{ paddingRight: 12 }}>Код</td><td>{card.code ?? "—"}</td></tr>
+                <tr><td className="muted">Уровень</td><td>{card.level}</td></tr>
+                <tr><td className="muted">Классификация</td><td>{card.classification}</td></tr>
+                <tr><td className="muted">Владелец</td><td>{card.owner ?? "—"}</td></tr>
+                <tr><td className="muted">Подразделение</td><td>{card.department ?? "—"}</td></tr>
+                <tr><td className="muted">Статус</td><td>{card.status}</td></tr>
+                <tr><td className="muted">Версия</td><td>v{card.version}</td></tr>
+                <tr><td className="muted">Дата пересмотра</td><td>{card.review_date ?? "—"}</td></tr>
+              </tbody>
+            </table>
+
+            <h4 style={{ marginTop: 16 }}>KPI</h4>
+            {card.kpi.length === 0 ? (
+              <p className="muted" style={{ fontSize: 13 }}>Показатели не заданы в связанной модели.</p>
+            ) : (
+              <ul style={{ fontSize: 13 }}>
+                {card.kpi.map((k) => <li key={k.id}>{k.name}{k.target ? ` — ${k.target}${k.unit ? ` ${k.unit}` : ""}` : ""}</li>)}
+              </ul>
+            )}
+
+            <h4 style={{ marginTop: 16 }}>Ссылки на модели и документы</h4>
+            {Object.keys(card.links).length === 0 ? (
+              <p className="muted" style={{ fontSize: 13 }}>Процесс не связан с сессией моделирования.</p>
+            ) : (
+              <ul style={{ fontSize: 13 }}>
+                {Object.entries(card.links).map(([k, url]) => (
+                  <li key={k}><a href={url} target="_blank" rel="noreferrer">{LINK_LABEL[k] ?? k}</a></li>
+                ))}
+              </ul>
+            )}
+
+            <h4 style={{ marginTop: 16 }}>Синхронизация с внешним реестром (ФТ-М1.5.2)</h4>
+            <p className="muted" style={{ fontSize: 12 }}>
+              Универсальный вебхук-коннектор: карточка отправляется POST-запросом на указанный URL.
+              Маппинг переименовывает поля карточки перед отправкой (JSON: {"{"}"исходное_поле": "новое_имя"{"}"}).
+            </p>
+            <label className="field"><span>Webhook URL</span><input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://..." /></label>
+            <label className="field" style={{ marginTop: 6 }}>
+              <span>Маппинг полей (JSON)</span>
+              <textarea style={{ width: "100%", height: 80, fontFamily: "monospace", fontSize: 12 }} value={mappingText} onChange={(e) => setMappingText(e.target.value)} />
+            </label>
+            {lastSynced && <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Последняя синхронизация: {new Date(lastSynced).toLocaleString("ru-RU")}</div>}
+            {syncResult && <div className="validation-item" style={{ marginTop: 6 }}>{syncResult}</div>}
+            <div className="toolbar" style={{ marginTop: 8 }}>
+              <button
+                disabled={busy || !webhookUrl.trim()}
+                onClick={async () => {
+                  setBusy(true);
+                  setSyncResult(null);
+                  try {
+                    let mapping: Record<string, string> = {};
+                    try { mapping = JSON.parse(mappingText || "{}"); } catch { setSyncResult("Ошибка: маппинг должен быть корректным JSON"); return; }
+                    await api.setCardSyncConfig(processId, webhookUrl.trim(), mapping);
+                    const r = await api.syncCard(processId);
+                    setSyncResult(r.ok ? "Синхронизировано успешно." : `Внешняя система ответила статусом ${r.status}.`);
+                    const cfg = await api.getCardSyncConfig(processId);
+                    setLastSynced(cfg.last_synced_at);
+                  } catch (e) {
+                    setSyncResult("Ошибка: " + (e as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Сохранить и синхронизировать
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

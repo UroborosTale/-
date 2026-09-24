@@ -144,6 +144,25 @@ export function validateModel(model: ProcessLogicModel): ValidationIssue[] {
     }
   }
 
+  // --- ФТ-М1.3.2: матрица RACI — ровно один A и хотя бы один R на действие.
+  // Проверяется только если RACI уже заполнена (фича опциональная, ФТ-М1.3).
+  if (model.raci.length > 0) {
+    for (const n of model.nodes) {
+      if (n.type !== "task" && n.type !== "subprocess") continue;
+      const forNode = model.raci.filter((r) => r.node_id === n.id);
+      const aCount = forNode.filter((r) => r.type === "A").length;
+      const rCount = forNode.filter((r) => r.type === "R").length;
+      if (aCount === 0) {
+        add("MODEL", "error", "raci_missing_a", `Действие «${n.name}» не имеет ответственного (A) в матрице RACI.`, n.id);
+      } else if (aCount > 1) {
+        add("MODEL", "error", "raci_multiple_a", `Действие «${n.name}» имеет более одного ответственного (A) в матрице RACI — должен быть ровно один.`, n.id);
+      }
+      if (rCount === 0) {
+        add("MODEL", "warning", "raci_missing_r", `Действие «${n.name}» не имеет исполнителя (R) в матрице RACI.`, n.id);
+      }
+    }
+  }
+
   return issues;
 }
 

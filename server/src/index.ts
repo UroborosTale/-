@@ -12,6 +12,9 @@ import { glossaryRouter } from "./routes/glossary.js";
 import { templatesRouter } from "./routes/templates.js";
 import { registryRouter } from "./routes/registry.js";
 import { versionsRouter } from "./routes/versions.js";
+import { raciRouter } from "./routes/raci.js";
+import { regulationRouter } from "./routes/regulation.js";
+import { cardRouter } from "./routes/card.js";
 import "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +51,9 @@ app.use("/api", glossaryRouter);
 app.use("/api", templatesRouter);
 app.use("/api", registryRouter);
 app.use("/api", versionsRouter);
+app.use("/api", raciRouter);
+app.use("/api", regulationRouter);
+app.use("/api", cardRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);
