@@ -4,6 +4,7 @@ import { fragmentText } from "../pipeline/fragment.js";
 import { runPipeline } from "../pipeline/run.js";
 import { INTERVIEW_OPENING_QUESTION, isInterviewComplete, mergeManualGaps, selectNextQuestion } from "../pipeline/interviewEngine.js";
 import { logAudit } from "../db.js";
+import { addVersion } from "../repo.js";
 import type { ChatMessage, Fragment } from "../types/model.js";
 
 export const interviewRouter = Router();
@@ -68,7 +69,7 @@ interviewRouter.post("/sessions/:id/interview/turn", async (req, res) => {
       }
     }
 
-    const updated = updateSession(req.params.id, {
+    updateSession(req.params.id, {
       model: output.model,
       validation: output.validation,
       bpmnXml: output.bpmnXml,
@@ -78,6 +79,7 @@ interviewRouter.post("/sessions/:id/interview/turn", async (req, res) => {
       diagramsStale: false,
       provider: output.providerName,
     });
+    const updated = addVersion(req.params.id, "Ход интервью");
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });

@@ -3,8 +3,10 @@ import { api } from "./api/client";
 import SessionsListPage from "./pages/SessionsListPage";
 import NewSessionPage from "./pages/NewSessionPage";
 import WorkspacePage from "./pages/WorkspacePage";
+import RegistryPage from "./pages/RegistryPage";
+import GlossaryPage from "./pages/GlossaryPage";
 
-type View = { name: "list" } | { name: "new" } | { name: "workspace"; id: string };
+type View = { name: "list" } | { name: "new" } | { name: "workspace"; id: string } | { name: "registry" } | { name: "glossary" };
 
 export default function App() {
   const [view, setView] = useState<View>({ name: "list" });
@@ -26,6 +28,8 @@ export default function App() {
               {provider.live ? `LLM: ${provider.name}` : "офлайн-режим (без внешней LLM)"}
             </span>
           )}
+          {view.name !== "registry" && <button onClick={() => setView({ name: "registry" })}>Реестр процессов</button>}
+          {view.name !== "glossary" && <button onClick={() => setView({ name: "glossary" })}>Справочники</button>}
           {view.name !== "list" && <button onClick={() => setView({ name: "list" })}>Все сессии</button>}
           {view.name !== "new" && <button className="primary" onClick={() => setView({ name: "new" })}>+ Новая сессия</button>}
         </div>
@@ -36,6 +40,8 @@ export default function App() {
         )}
         {view.name === "new" && <NewSessionPage onCreated={(id) => setView({ name: "workspace", id })} />}
         {view.name === "workspace" && <WorkspacePage sessionId={view.id} onBack={() => setView({ name: "list" })} />}
+        {view.name === "registry" && <RegistryPage />}
+        {view.name === "glossary" && <GlossaryPage />}
       </div>
     </div>
   );

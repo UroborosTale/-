@@ -56,6 +56,11 @@ export interface ProcessNode {
   status: "confirmed" | "hypothesis";
   confidence: number;
   source: SourceRef[];
+  time_processing?: string | null;
+  time_waiting?: string | null;
+  cost_estimate?: string | null;
+  requirement_ids: string[];
+  tags: string[];
 }
 
 export interface ProcessFlow {
@@ -85,6 +90,14 @@ export interface Statement {
   source: SourceRef[];
 }
 
+export interface Kpi {
+  id: string;
+  name: string;
+  target?: string | null;
+  unit?: string | null;
+  source: SourceRef[];
+}
+
 export interface ProcessMeta {
   id: string;
   name: string;
@@ -96,6 +109,46 @@ export interface ProcessMeta {
   result?: string;
   decomposition_depth: number;
   notations: ("IDEF0" | "BPMN")[];
+  code?: string | null;
+  level?: "L0" | "L1" | "L2" | "L3" | null;
+  parent_process_id?: string | null;
+  version: string;
+  status: "draft" | "review" | "approved" | "archived";
+  review_date?: string | null;
+  kpi: Kpi[];
+}
+
+export interface ProcessInterface {
+  id: string;
+  direction: "in" | "out";
+  data_id: string;
+  linked_process_id?: string | null;
+  linked_node_id?: string | null;
+}
+
+export interface RequirementLink {
+  requirement_id: string;
+  element_id: string;
+  coverage: "full" | "partial";
+}
+
+export interface RaciEntry {
+  node_id: string;
+  role_id: string;
+  type: "R" | "A" | "C" | "I";
+}
+
+export interface Respondent {
+  id: string;
+  role_id?: string | null;
+  session_ids: string[];
+}
+
+export interface Discrepancy {
+  id: string;
+  element_id: string;
+  variants: { respondent_id: string; value: string; source: SourceRef[] }[];
+  status: "open" | "resolved";
 }
 
 export interface ProcessLogicModel {
@@ -109,6 +162,11 @@ export interface ProcessLogicModel {
   flows: ProcessFlow[];
   gaps: Gap[];
   statements: Statement[];
+  interfaces: ProcessInterface[];
+  requirements_links: RequirementLink[];
+  raci: RaciEntry[];
+  respondents: Respondent[];
+  discrepancies: Discrepancy[];
 }
 
 export interface ValidationIssue {
@@ -164,10 +222,24 @@ export interface Comment {
   ts: string;
 }
 
-export interface VersionSnapshot {
-  version: number;
+export interface VersionListItem {
+  seq: number;
+  version: string;
+  major: boolean;
   ts: string;
   note: string;
+  author: string;
+  nodeCount: number;
+  flowCount: number;
+}
+
+export interface VersionSnapshot {
+  seq: number;
+  version: string;
+  major: boolean;
+  ts: string;
+  note: string;
+  author: string;
   model: ProcessLogicModel;
 }
 

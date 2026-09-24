@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS glossary (
   key TEXT PRIMARY KEY,
   kind TEXT NOT NULL,
-  value TEXT NOT NULL
+  value TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'confirmed'
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -46,6 +47,47 @@ CREATE TABLE IF NOT EXISTS audit_log (
   action TEXT NOT NULL,
   details_json TEXT,
   ts TEXT NOT NULL
+);
+
+-- М3.1: реестр процессов портфеля (иерархия L0-L3, классификация, атрибуты)
+CREATE TABLE IF NOT EXISTS processes (
+  id TEXT PRIMARY KEY,
+  code TEXT,
+  name TEXT NOT NULL,
+  level TEXT NOT NULL DEFAULT 'L2',
+  parent_process_id TEXT,
+  classification TEXT NOT NULL DEFAULT 'main',
+  owner TEXT,
+  department TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',
+  version TEXT NOT NULL DEFAULT '0.1',
+  review_date TEXT,
+  session_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- М3.2: подтверждённые связи между процессами (стыки вход/выход)
+CREATE TABLE IF NOT EXISTS process_links (
+  id TEXT PRIMARY KEY,
+  from_process_id TEXT NOT NULL,
+  to_process_id TEXT NOT NULL,
+  data_label TEXT NOT NULL,
+  confirmed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+-- М3.5: должности штатного расписания и отображение роль<->должность (многие-ко-многим)
+CREATE TABLE IF NOT EXISTS positions (
+  key TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  department TEXT
+);
+
+CREATE TABLE IF NOT EXISTS role_position_map (
+  role_key TEXT NOT NULL,
+  position_key TEXT NOT NULL,
+  PRIMARY KEY (role_key, position_key)
 );
 `);
 

@@ -10,6 +10,8 @@ import { interviewRouter } from "./routes/interview.js";
 import { exportRouter } from "./routes/export.js";
 import { glossaryRouter } from "./routes/glossary.js";
 import { templatesRouter } from "./routes/templates.js";
+import { registryRouter } from "./routes/registry.js";
+import { versionsRouter } from "./routes/versions.js";
 import "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,9 +22,22 @@ app.use(express.json({ limit: "25mb" }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
+// Схема PLM публикуется как версионированный контракт (ТЗ на развитие, 2.2):
+// /v1 — исходная схема Ядра, /v2 — текущая (расширенная модулями развития),
+// /latest — алиас на актуальную версию. Старый путь без версии сохранён
+// для обратной совместимости и указывает на v1 (поведение не менялось).
+const schemaFile = (name: string) => path.join(__dirname, "schema", name);
 app.get("/api/schema/process-logic.json", (_req, res) => {
-  const schemaPath = path.join(__dirname, "schema", "process-logic.schema.json");
-  res.type("application/json").send(fs.readFileSync(schemaPath, "utf-8"));
+  res.type("application/json").send(fs.readFileSync(schemaFile("process-logic.schema.json"), "utf-8"));
+});
+app.get("/api/schema/process-logic/v1", (_req, res) => {
+  res.type("application/json").send(fs.readFileSync(schemaFile("process-logic.schema.json"), "utf-8"));
+});
+app.get("/api/schema/process-logic/v2", (_req, res) => {
+  res.type("application/json").send(fs.readFileSync(schemaFile("process-logic.v2.schema.json"), "utf-8"));
+});
+app.get("/api/schema/process-logic/latest", (_req, res) => {
+  res.type("application/json").send(fs.readFileSync(schemaFile("process-logic.v2.schema.json"), "utf-8"));
 });
 
 app.use("/api", sessionsRouter);
@@ -31,6 +46,8 @@ app.use("/api", interviewRouter);
 app.use("/api", exportRouter);
 app.use("/api", glossaryRouter);
 app.use("/api", templatesRouter);
+app.use("/api", registryRouter);
+app.use("/api", versionsRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

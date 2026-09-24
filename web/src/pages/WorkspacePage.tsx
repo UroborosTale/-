@@ -11,8 +11,9 @@ import ChatPanel from "../components/ChatPanel";
 import CommentsPanel from "../components/CommentsPanel";
 import ExportsPanel from "../components/ExportsPanel";
 import IngestPanel from "../components/IngestPanel";
+import VersionsPanel from "../components/VersionsPanel";
 
-type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "chat";
+type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "chat";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -77,6 +78,7 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
     { key: "model", label: "Модель" },
     { key: "gaps", label: `Пробелы${model ? ` (${model.gaps.filter((g) => g.status === "open").length})` : ""}` },
     { key: "validation", label: `Валидация${session.validation.length ? ` (${session.validation.length})` : ""}` },
+    { key: "versions", label: "Версии" },
     { key: "export", label: "Экспорт" },
   ];
 
@@ -199,7 +201,8 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
             )}
             {tab === "gaps" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "validation" && <ValidationPanel issues={session.validation} onSelectElement={(id) => { selectElement(id); setTab("model"); }} />}
-            {tab === "export" && <ExportsPanel session={session} onSnapshot={reload} />}
+            {tab === "versions" && <VersionsPanel session={session} onChanged={reload} />}
+            {tab === "export" && <ExportsPanel session={session} />}
           </div>
           <div className="right card">
             <h4 style={{ marginTop: 0 }}>

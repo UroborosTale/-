@@ -13,9 +13,12 @@ export interface SessionMeta {
 }
 
 export interface VersionSnapshot {
-  version: number;
+  seq: number; // порядковый номер снимка, монотонно растёт, никогда не переиспользуется (М7.1)
+  version: string; // семантическая версия "MAJOR.MINOR", напр. "0.3", "1.0"
+  major: boolean; // true — снимок создан при утверждении (ФТ-М7.1.1)
   ts: string;
   note: string;
+  author: string;
   model: ProcessLogicModel;
 }
 
@@ -147,13 +150,55 @@ export function updateSession(id: string, patch: SessionUpdate): SessionRecord {
   return getSession(id)!;
 }
 
-export function addVersion(id: string, note: string): SessionRecord {
+/**
+ * Создаёт снимок версии модели (ФТ-М7.1.1): каждое сохранение — новая версия.
+ * Мажорная версия присваивается при утверждении (opts.major), минорная —
+ * во всех остальных случаях (автосохранение, ручная правка, откат).
+ * История версий не переписывается: rollback добавляет новый снимок поверх
+ * старых (ФТ-М7.1.3), а не удаляет их.
+ * Версия и статус синхронизируются в модель сессии (process.version/status),
+ * чтобы GET /sessions/:id всегда показывал актуальную версию.
+ */
+export function addVersion(id: string, note: string, opts?: { major?: boolean; author?: string; modelOverride?: ProcessLogicModel }): SessionRecord {
   const current = getSession(id);
-  if (!current || !current.model) throw new Error("No model to snapshot");
+  const model = opts?.modelOverride ?? current?.model;
+  if (!current || !model) throw new Error("No model to snapshot");
   const versions = [...current.versions];
-  const version = (versions[versions.length - 1]?.version ?? 0) + 1;
-  versions.push({ version, ts: new Date().toISOString(), note, model: current.model });
-  db.prepare(`UPDATE sessions SET versions_json = ? WHERE id = ?`).run(JSON.stringify(versions.slice(-30)), id);
-  logAudit(id, "system", "version_snapshot", { version, note });
+  const last = versions[versions.length - 1];
+  let major = 0;
+  let minor = 0;
+  if (last) {
+    const [ma, mi] = last.version.split(".");
+    major = Number(ma) || 0;
+    minor = Number(mi) || 0;
+  }
+  if (opts?.major) {
+    major += 1;
+    minor = 0;
+  } else {
+    minor += 1;
+  }
+  const version = `${major}.${minor}`;
+  const seq = (last?.seq ?? 0) + 1;
+  const stampedModel: ProcessLogicModel = {
+    ...model,
+    process: { ...model.process, version, status: opts?.major ? "approved" : model.process.status },
+  };
+  versions.push({ seq, version, major: !!opts?.major, ts: new Date().toISOString(), note, author: opts?.author ?? "аналитик", model: stampedModel });
+  db.prepare(`UPDATE sessions SET versions_json = ?, model_json = ? WHERE id = ?`).run(
+    JSON.stringify(versions.slice(-50)),
+    JSON.stringify(stampedModel),
+    id
+  );
+  logAudit(id, opts?.author ?? "system", opts?.major ? "version_approved" : "version_snapshot", { version, note });
   return getSession(id)!;
+}
+
+/** Откат к исторической версии (ФТ-М7.1.3): создаёт НОВЫЙ снимок поверх истории, не переписывая её. */
+export function rollbackToVersion(id: string, seq: number, author?: string): SessionRecord {
+  const current = getSession(id);
+  if (!current) throw new Error("Session not found");
+  const target = current.versions.find((v) => v.seq === seq);
+  if (!target) throw new Error("Version not found");
+  return addVersion(id, `Откат к версии ${target.version}`, { author, modelOverride: target.model });
 }

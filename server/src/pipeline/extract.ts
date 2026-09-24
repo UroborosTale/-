@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import type { Fragment, ProcessLogicModel, ProcessNode, Role, SystemEntity, DataEntity, ControlEntity, ProcessFlow, Statement } from "../types/model.js";
+import { SCHEMA_VERSION } from "../types/model.js";
 import type { LLMProvider, LLMFragmentInput, ExtractionChunkResult } from "../llm/types.js";
 
 const CHUNK_SIZE = 18;
@@ -159,6 +160,8 @@ export async function extractModel(
         status: n.confidence >= 0.6 ? "confirmed" : "hypothesis",
         confidence: n.confidence,
         source: [{ fragment_id: n.source_fragment_id, quote: n.quote }],
+        requirement_ids: [],
+        tags: [],
       };
       nodes.push(node);
       orderToNodeId.set(n.order_hint, nodeId);
@@ -209,7 +212,7 @@ export async function extractModel(
   }
 
   const model: ProcessLogicModel = {
-    schema_version: "1.0.0",
+    schema_version: SCHEMA_VERSION,
     process: {
       id: opts.processId,
       name: opts.processName,
@@ -221,6 +224,9 @@ export async function extractModel(
       result,
       decomposition_depth: opts.decompositionDepth ?? 2,
       notations: ["IDEF0", "BPMN"],
+      version: "0.1",
+      status: "draft",
+      kpi: [],
     },
     roles: roles.list,
     systems: systems.list,
@@ -230,6 +236,11 @@ export async function extractModel(
     flows,
     gaps: [],
     statements,
+    interfaces: [],
+    requirements_links: [],
+    raci: [],
+    respondents: [],
+    discrepancies: [],
   };
 
   return model;

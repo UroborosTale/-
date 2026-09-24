@@ -94,8 +94,9 @@ sessionsRouter.put("/sessions/:id/model", (req, res) => {
   const model = parsed.data;
   model.gaps = detectGaps(model);
   const validation = validateModel(model);
-  const updated = updateSession(req.params.id, { model, validation, diagramsStale: true });
+  updateSession(req.params.id, { model, validation, diagramsStale: true });
   logAudit(req.params.id, "analyst", "model_edited");
+  const updated = addVersion(req.params.id, "Ручная правка модели");
   res.json(updated);
 });
 
@@ -112,51 +113,7 @@ sessionsRouter.post("/sessions/:id/rebuild-diagrams", async (req, res) => {
   res.json(updated);
 });
 
-sessionsRouter.post("/sessions/:id/versions", (req, res) => {
-  const note = (req.body?.note as string) || "снимок версии";
-  try {
-    const updated = addVersion(req.params.id, note);
-    res.json(updated);
-  } catch (e) {
-    res.status(400).json({ error: (e as Error).message });
-  }
-});
-
-sessionsRouter.get("/sessions/:id/versions/:v1/diff/:v2", (req, res) => {
-  const session = getSession(req.params.id);
-  if (!session) {
-    res.status(404).json({ error: "not found" });
-    return;
-  }
-  const v1 = session.versions.find((v) => String(v.version) === req.params.v1);
-  const v2 = session.versions.find((v) => String(v.version) === req.params.v2);
-  if (!v1 || !v2) {
-    res.status(404).json({ error: "version not found" });
-    return;
-  }
-  res.json(diffModels(v1.model, v2.model));
-});
-
-function diffModels(a: ProcessLogicModel, b: ProcessLogicModel) {
-  function names(arr: { id: string; name: string }[]) {
-    return new Map(arr.map((x) => [x.id, x.name] as const));
-  }
-  function diffList(an: { id: string; name?: string }[], bn: { id: string; name?: string }[]) {
-    const aIds = new Set(an.map((x) => x.id));
-    const bIds = new Set(bn.map((x) => x.id));
-    return {
-      added: bn.filter((x) => !aIds.has(x.id)),
-      removed: an.filter((x) => !bIds.has(x.id)),
-    };
-  }
-  return {
-    nodes: diffList(a.nodes, b.nodes),
-    flows: diffList(a.flows as any, b.flows as any),
-    roles: diffList(a.roles, b.roles),
-    data: diffList(a.data, b.data),
-    controls: diffList(a.controls, b.controls),
-  };
-}
+// Версионирование (снимок/утверждение/откат/сравнение) вынесено в routes/versions.ts (М7.1).
 
 sessionsRouter.post("/sessions/:id/comments", (req, res) => {
   const session = getSession(req.params.id);

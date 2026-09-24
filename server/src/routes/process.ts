@@ -5,6 +5,7 @@ import { parseUploadedFile } from "../pipeline/ingest.js";
 import { runPipeline } from "../pipeline/run.js";
 import { logAudit } from "../db.js";
 import { db } from "../db.js";
+import { addVersion } from "../repo.js";
 import type { Fragment } from "../types/model.js";
 
 export const processRouter = Router();
@@ -97,7 +98,7 @@ processRouter.post("/sessions/:id/run", async (req, res) => {
   updateSession(req.params.id, { status: "processing" });
   try {
     const output = await runPipeline(session.id, session.fragments, session.meta);
-    const updated = updateSession(req.params.id, {
+    updateSession(req.params.id, {
       model: output.model,
       validation: output.validation,
       bpmnXml: output.bpmnXml,
@@ -107,6 +108,7 @@ processRouter.post("/sessions/:id/run", async (req, res) => {
       provider: output.providerName,
     });
     logAudit(req.params.id, "analyst", "pipeline_run", { provider: output.providerName, nodes: output.model.nodes.length });
+    const updated = addVersion(req.params.id, "Запуск конвейера извлечения");
     res.json(updated);
   } catch (e) {
     updateSession(req.params.id, { status: "draft" });
@@ -154,7 +156,7 @@ processRouter.post("/sessions/:id/answers", async (req, res) => {
 
   try {
     const output = await runPipeline(session.id, fragments, session.meta);
-    const updated = updateSession(req.params.id, {
+    updateSession(req.params.id, {
       model: output.model,
       validation: output.validation,
       bpmnXml: output.bpmnXml,
@@ -163,6 +165,7 @@ processRouter.post("/sessions/:id/answers", async (req, res) => {
       diagramsStale: false,
     });
     logAudit(req.params.id, "owner", "gap_answered", { gapId });
+    const updated = addVersion(req.params.id, `Ответ на уточнение: ${gap.question.slice(0, 60)}`);
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
