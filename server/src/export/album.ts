@@ -7,7 +7,8 @@ function esc(s: string | null | undefined): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-async function renderBpmnSchematic(model: ProcessLogicModel): Promise<string> {
+/** Упрощённая SVG-схема BPMN для печати (переиспользуется альбомом моделей и пакетом к аудиту). */
+export async function renderBpmnSchematic(model: ProcessLogicModel): Promise<string> {
   const roleIndex = new Map(model.roles.map((r, i) => [r.id, i] as const));
   const SIZE: Record<string, { w: number; h: number }> = {
     task: { w: 100, h: 80 },

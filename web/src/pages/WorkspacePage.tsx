@@ -26,11 +26,12 @@ import HypothesesPanel from "../components/HypothesesPanel";
 import MiningPanel from "../components/MiningPanel";
 import BpmsExportPanel from "../components/BpmsExportPanel";
 import DiagramReimportPanel from "../components/DiagramReimportPanel";
+import AuditPackagePanel from "../components/AuditPackagePanel";
 
 type Tab =
   | "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation"
   | "multiInterview" | "verification" | "review" | "analytics" | "checklist" | "traceability" | "jobDescriptions" | "agentRuns"
-  | "hypotheses" | "mining" | "bpms" | "diagramReimport" | "chat";
+  | "hypotheses" | "mining" | "bpms" | "diagramReimport" | "auditPackage" | "chat";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -101,6 +102,7 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
     { key: "mining", label: "Process mining" },
     { key: "bpms", label: "Экспорт в BPMS" },
     { key: "diagramReimport", label: "Правки из редакторов" },
+    { key: "auditPackage", label: "Пакет к аудиту" },
     { key: "checklist", label: "Чек-лист" },
     { key: "traceability", label: "Трассировка требований" },
     { key: "jobDescriptions", label: "Должностные инструкции" },
@@ -253,6 +255,8 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
             {tab === "bpms" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "diagramReimport" && model && <DiagramReimportPanel session={session} onChanged={reload} />}
             {tab === "diagramReimport" && !model && <p className="muted">Модель ещё не построена.</p>}
+            {tab === "auditPackage" && model && <AuditPackagePanel session={session} />}
+            {tab === "auditPackage" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "regulation" && model && <RegulationPanel session={session} />}
             {tab === "regulation" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "multiInterview" && <MultiInterviewPanel session={session} onChanged={reload} />}

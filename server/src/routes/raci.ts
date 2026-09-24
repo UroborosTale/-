@@ -1,9 +1,8 @@
 import { Router } from "express";
 import { getSession, updateSession, addVersion, editBlockReason } from "../repo.js";
-import { buildRaci } from "../pipeline/raci.js";
+import { buildRaci, buildRaciWorkbookBuffer } from "../pipeline/raci.js";
 import { validateModel } from "../pipeline/validate.js";
 import { logAudit } from "../db.js";
-import * as XLSX from "xlsx";
 
 export const raciRouter = Router();
 
@@ -82,25 +81,7 @@ raciRouter.get("/sessions/:id/raci/export/xlsx", (req, res) => {
     res.status(404).json({ error: "модель ещё не построена" });
     return;
   }
-  const model = session.model;
-  const tasks = model.nodes.filter((n) => n.type === "task" || n.type === "subprocess");
-  const roleById = new Map(model.roles.map((r) => [r.id, r.name] as const));
-
-  const sheetRows = tasks.map((n) => {
-    const row: Record<string, string> = { Действие: n.name };
-    for (const r of model.roles) {
-      const types = model.raci.filter((e) => e.node_id === n.id && e.role_id === r.id).map((e) => e.type);
-      row[r.name] = types.join(",");
-    }
-    return row;
-  });
-  void roleById;
-
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(sheetRows);
-  ws["!cols"] = [{ wch: 40 }, ...model.roles.map(() => ({ wch: 14 }))];
-  XLSX.utils.book_append_sheet(wb, ws, "RACI");
-  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+  const buf = buildRaciWorkbookBuffer(session.model);
   res.setHeader("Content-Disposition", `attachment; filename="raci.xlsx"`);
   res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").send(buf);
 });

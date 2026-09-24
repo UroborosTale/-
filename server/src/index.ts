@@ -33,6 +33,7 @@ import { miningRouter } from "./routes/mining.js";
 import { adaptiveDepthRouter } from "./routes/adaptiveDepth.js";
 import { bpmsRouter } from "./routes/bpms.js";
 import { diagramImportRouter } from "./routes/diagramImport.js";
+import { auditPackageRouter } from "./routes/auditPackage.js";
 import "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -90,6 +91,7 @@ app.use("/api", miningRouter);
 app.use("/api", adaptiveDepthRouter);
 app.use("/api", bpmsRouter);
 app.use("/api", diagramImportRouter);
+app.use("/api", auditPackageRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

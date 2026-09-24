@@ -438,6 +438,19 @@ export interface CriticalityScore {
   reasons: string[];
 }
 
+// --- М6.4 Пакет к аудиту ---
+export interface RequirementAuditCoverage {
+  requirement: { id: string; code: string; title: string; source: string };
+  coveredByProcessCount: number;
+  totalProcessCount: number;
+  coverage: {
+    sessionId: string;
+    processName: string;
+    status: string;
+    elements: { elementId: string; name: string; coverage: "full" | "partial" }[];
+  }[];
+}
+
 // --- М1.4 Экспорт в BPMS ---
 export interface CompletenessReport {
   target: "camunda" | "elma365";
@@ -784,4 +797,10 @@ export const api = {
   // --- М9.5 Распознавание диаграмм на входе ---
   importDiagramNew: (input: { format: "bpmn" | "drawio" | "image" | "vsdx"; content: string; mimeType?: string; meta: SessionMeta }) =>
     req<DiagramImportResult>("POST", "/diagram-import/new", input),
+
+  // --- М6.4 Пакет к аудиту ---
+  auditPackagePreviewUrl: (id: string) => `${BASE}/sessions/${id}/audit-package/preview.html`,
+  auditPackagePdfUrl: (id: string) => `${BASE}/sessions/${id}/audit-package/export.pdf`,
+  auditPackageZipUrl: (id: string) => `${BASE}/sessions/${id}/audit-package/export.zip`,
+  getRequirementAuditCoverage: (reqId: string) => req<RequirementAuditCoverage>("GET", `/requirements/${reqId}/audit-package`),
 };
