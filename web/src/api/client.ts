@@ -356,6 +356,88 @@ export interface LLMStatus {
   localConfigured: boolean;
 }
 
+// --- М2.4 Гипотезы TO-BE ---
+export interface HypothesisRow {
+  id: string;
+  template: string;
+  templateLabel: string;
+  title: string;
+  description: string;
+  affectedElementIds: string[];
+  minutesSaved: number | null;
+  costSaved: number | null;
+  risks: string;
+  assumptions: string;
+  status: "proposed" | "applied" | "dismissed";
+  appliedSessionId: string | null;
+  createdAt: string;
+}
+
+// --- М2.5 Сравнение AS-IS/TO-BE ---
+export interface CompareDelta {
+  stepCount: { before: number; after: number };
+  handoffCount: { before: number; after: number };
+  cycleTimeMinutes: { before: number | null; after: number | null };
+  laborCostPerInstance: { before: number | null; after: number | null };
+}
+export interface CompareReport {
+  diff: any;
+  delta: CompareDelta;
+}
+
+// --- М4.3 Process mining ---
+export interface DfgEdge {
+  from: string;
+  to: string;
+  count: number;
+}
+export interface MiningImportResult {
+  logId: string;
+  eventCount: number;
+  caseCount: number;
+  dfg: { activities: string[]; edges: DfgEdge[]; caseCount: number };
+  suggestions: { activity: string; nodeId: string | null; nodeName: string | null; score: number }[];
+}
+export interface MiningMappingRow {
+  activity: string;
+  nodeId: string | null;
+  nodeName: string | null;
+  confirmed: boolean;
+}
+export interface ConformanceDeviation {
+  fromLabel: string;
+  toLabel: string;
+  count?: number;
+}
+export interface ActivityStat {
+  activity: string;
+  count: number;
+  avgMinutes: number | null;
+  mappedNodeId: string | null;
+}
+export interface ConformanceReport {
+  fitness: number | null;
+  precision: number | null;
+  deviationsInLogNotModel: ConformanceDeviation[];
+  deviationsInModelNotLog: ConformanceDeviation[];
+  activityStats: ActivityStat[];
+}
+export interface MiningReport {
+  modelStepCount: number;
+  logActivityCount: number;
+  logCaseCount: number;
+  mappedActivityCount: number;
+  conformance: ConformanceReport | null;
+}
+
+// --- М4.5 Адаптивная глубина ---
+export interface CriticalityScore {
+  nodeId: string;
+  name: string;
+  score: number;
+  reasons: string[];
+}
+
 const BASE = "/api";
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -638,4 +720,29 @@ export const api = {
   // --- М9.1.4/9.3.3 Регрессионная оценка / М9.3 статус провайдеров ---
   runEval: (provider: string) => req<EvalSummary>("GET", `/eval?provider=${encodeURIComponent(provider)}`),
   getLlmStatus: () => req<LLMStatus>("GET", "/llm-status"),
+
+  // --- М2.4 Гипотезы TO-BE ---
+  generateHypotheses: (id: string) => req<HypothesisRow[]>("POST", `/sessions/${id}/tobe-hypotheses/generate`),
+  listHypotheses: (id: string) => req<HypothesisRow[]>("GET", `/sessions/${id}/tobe-hypotheses`),
+  applyHypothesis: (id: string, hypId: string) => req<{ session: SessionRecord; hypothesisId: string }>("POST", `/sessions/${id}/tobe-hypotheses/${hypId}/apply`),
+  dismissHypothesis: (id: string, hypId: string) => req<void>("POST", `/sessions/${id}/tobe-hypotheses/${hypId}/dismiss`),
+
+  // --- М2.5 Сравнение AS-IS/TO-BE ---
+  getCompare: (asIsId: string, toBeId: string) => req<CompareReport>("GET", `/sessions/${asIsId}/compare/${toBeId}`),
+  comparePreviewUrl: (asIsId: string, toBeId: string) => `${BASE}/sessions/${asIsId}/compare/${toBeId}/preview.html`,
+  compareExportPdfUrl: (asIsId: string, toBeId: string) => `${BASE}/sessions/${asIsId}/compare/${toBeId}/export.pdf`,
+
+  // --- М4.3 Process mining ---
+  importMiningLog: (id: string, csv: string, filename?: string) => req<MiningImportResult>("POST", `/sessions/${id}/mining/import`, { csv, filename }),
+  getMiningLog: (id: string) => req<any>("GET", `/sessions/${id}/mining/log`),
+  listMiningMappings: (id: string) => req<MiningMappingRow[]>("GET", `/sessions/${id}/mining/mappings`),
+  setMiningMapping: (id: string, activity: string, nodeId: string | null, confirmed: boolean) =>
+    req<MiningMappingRow>("PUT", `/sessions/${id}/mining/mappings/${encodeURIComponent(activity)}`, { nodeId, confirmed }),
+  getMiningConformance: (id: string) => req<ConformanceReport>("GET", `/sessions/${id}/mining/conformance`),
+  applyMiningDurations: (id: string) => req<SessionRecord>("POST", `/sessions/${id}/mining/apply-durations`),
+  getMiningReport: (id: string) => req<MiningReport>("GET", `/sessions/${id}/mining/report`),
+
+  // --- М4.5 Адаптивная глубина ---
+  getCriticality: (id: string) => req<CriticalityScore[]>("GET", `/sessions/${id}/adaptive-depth/criticality`),
+  requestAdaptiveDepthGaps: (id: string) => req<{ added: number; gaps: Gap[] }>("POST", `/sessions/${id}/adaptive-depth/request-gaps`),
 };

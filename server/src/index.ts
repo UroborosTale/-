@@ -28,6 +28,9 @@ import { traceabilityRouter } from "./routes/traceability.js";
 import { auditRouter } from "./routes/audit.js";
 import { jobDescriptionRouter } from "./routes/jobDescription.js";
 import { technologyRouter } from "./routes/technology.js";
+import { hypothesesRouter } from "./routes/hypotheses.js";
+import { miningRouter } from "./routes/mining.js";
+import { adaptiveDepthRouter } from "./routes/adaptiveDepth.js";
 import "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -80,6 +83,9 @@ app.use("/api", traceabilityRouter);
 app.use("/api", auditRouter);
 app.use("/api", jobDescriptionRouter);
 app.use("/api", technologyRouter);
+app.use("/api", hypothesesRouter);
+app.use("/api", miningRouter);
+app.use("/api", adaptiveDepthRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

@@ -203,6 +203,42 @@ CREATE TABLE IF NOT EXISTS duplicate_dismissals (
   PRIMARY KEY (from_process_id, to_process_id)
 );
 
+-- М2.4: гипотезы TO-BE, сгенерированные по результатам М2.1-2.3 (никогда не
+-- применяются к модели автоматически — только по явному действию аналитика).
+CREATE TABLE IF NOT EXISTS tobe_hypotheses (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  template TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  affected_element_ids_json TEXT NOT NULL,
+  minutes_saved REAL,
+  cost_saved REAL,
+  risks TEXT NOT NULL,
+  assumptions TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'proposed',
+  applied_session_id TEXT,
+  created_at TEXT NOT NULL
+);
+
+-- М4.3: импортированные журналы событий (process mining) и сопоставление
+-- активностей журнала с действиями PLM (подтверждается аналитиком, 4.3.2).
+CREATE TABLE IF NOT EXISTS mining_logs (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  filename TEXT,
+  events_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mining_mappings (
+  session_id TEXT NOT NULL,
+  activity TEXT NOT NULL,
+  node_id TEXT,
+  confirmed INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (session_id, activity)
+);
+
 -- М1.5.2: синхронизация карточки процесса с внешним реестром через коннектор
 -- (генерический вебхук + настраиваемый маппинг полей — без привязки к
 -- конкретному вендору, т.к. в этом окружении нет реальных учётных данных
