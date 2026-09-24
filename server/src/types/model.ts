@@ -135,6 +135,15 @@ export const Kpi = z.object({
 });
 export type Kpi = z.infer<typeof Kpi>;
 
+// --- PLM v2: риски процесса (для чек-листа процессного подхода, ФТ-М6.2.1) ---
+export const Risk = z.object({
+  id: z.string(),
+  name: z.string(),
+  mitigation: z.string().nullable().optional(),
+  source: z.array(SourceRef).default([]),
+});
+export type Risk = z.infer<typeof Risk>;
+
 export const ProcessMeta = z.object({
   id: z.string(),
   name: z.string(),
@@ -154,6 +163,8 @@ export const ProcessMeta = z.object({
   status: z.enum(["draft", "review", "needs_rework", "approved", "archived"]).default("draft"), // ФТ-М7.2.2
   review_date: z.string().nullable().optional(), // дата планового пересмотра (М6.5)
   kpi: z.array(Kpi).default([]),
+  risks: z.array(Risk).default([]), // ФТ-М6.2.1
+  frequency_per_month: z.number().nullable().optional(), // ФТ-М2.2.1: частота процесса для расчёта трудозатрат/стоимости за период
 });
 export type ProcessMeta = z.infer<typeof ProcessMeta>;
 

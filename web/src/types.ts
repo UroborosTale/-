@@ -100,6 +100,13 @@ export interface Kpi {
   source: SourceRef[];
 }
 
+export interface Risk {
+  id: string;
+  name: string;
+  mitigation?: string | null;
+  source: SourceRef[];
+}
+
 export interface ProcessMeta {
   id: string;
   name: string;
@@ -118,6 +125,8 @@ export interface ProcessMeta {
   status: "draft" | "review" | "needs_rework" | "approved" | "archived";
   review_date?: string | null;
   kpi: Kpi[];
+  risks: Risk[];
+  frequency_per_month?: number | null;
 }
 
 export interface ProcessInterface {

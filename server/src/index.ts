@@ -21,6 +21,9 @@ import { verificationRouter } from "./routes/verification.js";
 import { reviewRouter } from "./routes/review.js";
 import { impactAnalysisRouter } from "./routes/impactAnalysis.js";
 import { notificationsRouter } from "./routes/notifications.js";
+import { analyticsRouter } from "./routes/analytics.js";
+import { requirementsRouter } from "./routes/requirements.js";
+import { checklistRouter } from "./routes/checklist.js";
 import "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -66,6 +69,9 @@ app.use("/api", verificationRouter);
 app.use("/api", reviewRouter);
 app.use("/api", impactAnalysisRouter);
 app.use("/api", notificationsRouter);
+app.use("/api", analyticsRouter);
+app.use("/api", requirementsRouter);
+app.use("/api", checklistRouter);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

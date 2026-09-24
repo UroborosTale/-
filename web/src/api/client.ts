@@ -1,4 +1,4 @@
-import type { SessionListItem, SessionMeta, SessionRecord, VersionListItem, InterviewTrack, SessionRespondent, ChatMessage, Discrepancy } from "../types";
+import type { SessionListItem, SessionMeta, SessionRecord, VersionListItem, InterviewTrack, SessionRespondent, ChatMessage, Discrepancy, SourceRef, Gap } from "../types";
 
 export interface CampaignRespondentStatus {
   id: string;
@@ -137,6 +137,96 @@ export interface ProcessCard {
   session_id: string | null;
   kpi: { id: string; name: string; target?: string | null; unit?: string | null }[];
   links: Record<string, string>;
+}
+
+// --- М2.1 Аналитика узких мест ---
+export interface PathInfo {
+  nodeIds: string[];
+  nodeNames: string[];
+  totalMinutes: number | null;
+}
+export interface NodeHeat {
+  nodeId: string;
+  name: string;
+  heat: number;
+  minutes: number | null;
+  inLoop: boolean;
+}
+export interface BottleneckReport {
+  hasTimingData: boolean;
+  mainPath: PathInfo | null;
+  worstPath: PathInfo | null;
+  waitingShare: number | null;
+  handoffCount: number;
+  approvalCount: number;
+  returnLoopCount: number;
+  nodeHeat: NodeHeat[];
+}
+
+// --- М2.3 Антипаттерны ---
+export interface AntipatternFinding {
+  id: string;
+  rule: string;
+  label: string;
+  elementIds: string[];
+  explanation: string;
+  quotes: SourceRef[];
+}
+
+// --- М2.2 Трудозатраты и стоимость ---
+export interface RoleRate {
+  role_key: string;
+  role_name: string;
+  rate: number;
+  unit: string;
+}
+export interface RoleCost {
+  roleId: string;
+  roleName: string;
+  minutesPerInstance: number;
+  costPerInstance: number | null;
+  hasRate: boolean;
+}
+export interface CostReport {
+  roles: RoleCost[];
+  totalMinutesPerInstance: number;
+  totalCostPerInstance: number | null;
+  frequencyPerMonth: number | null;
+  totalCostPerMonth: number | null;
+  missingRates: string[];
+}
+export interface SensitivityPoint {
+  label: string;
+  frequencyPerMonth: number | null;
+  durationFactor: number;
+  totalCostPerMonth: number | null;
+}
+
+// --- М6.1 Реестр требований ---
+export interface RequirementRow {
+  id: string;
+  code: string;
+  title: string;
+  source: string;
+  created_at: string;
+}
+
+// --- М6.2 Чек-лист процессного подхода ---
+export interface ChecklistRuleRow {
+  id: string;
+  code: string;
+  label: string;
+  enabled: number;
+}
+export interface ChecklistRuleResult {
+  code: string;
+  label: string;
+  passed: boolean;
+  detail: string;
+}
+export interface ChecklistResult {
+  compliancePercent: number;
+  results: ChecklistRuleResult[];
 }
 
 const BASE = "/api";
@@ -342,4 +432,38 @@ export const api = {
   markNotificationRead: (id: string) => req<void>("POST", `/notifications/${id}/read`),
   getNotificationWebhook: (id: string) => req<{ webhook_url: string | null }>("GET", `/sessions/${id}/notification-webhook`),
   setNotificationWebhook: (id: string, webhook_url: string) => req<{ webhook_url: string }>("PUT", `/sessions/${id}/notification-webhook`, { webhook_url }),
+
+  // --- М2.1 Узкие места ---
+  getBottlenecks: (id: string) => req<BottleneckReport>("GET", `/sessions/${id}/analytics/bottlenecks`),
+  requestTimingGaps: (id: string) => req<{ added: number; gaps: Gap[] }>("POST", `/sessions/${id}/analytics/request-timing-gaps`),
+
+  // --- М2.3 Антипаттерны ---
+  getAntipatterns: (id: string) => req<AntipatternFinding[]>("GET", `/sessions/${id}/analytics/antipatterns`),
+
+  // --- М2.2 Трудозатраты и стоимость ---
+  listRoleRates: () => req<RoleRate[]>("GET", "/role-rates"),
+  setRoleRate: (roleKey: string, role_name: string, rate: number, unit?: string) =>
+    req<RoleRate>("PUT", `/role-rates/${encodeURIComponent(roleKey)}`, { role_name, rate, unit }),
+  deleteRoleRate: (roleKey: string) => req<void>("DELETE", `/role-rates/${encodeURIComponent(roleKey)}`),
+  getCost: (id: string, frequency?: number) => req<CostReport>("GET", `/sessions/${id}/analytics/cost${frequency !== undefined ? `?frequency=${frequency}` : ""}`),
+  getSensitivity: (id: string, frequency?: number) =>
+    req<SensitivityPoint[]>("GET", `/sessions/${id}/analytics/sensitivity${frequency !== undefined ? `?frequency=${frequency}` : ""}`),
+  setFrequency: (id: string, frequency_per_month: number | null) =>
+    req<{ frequency_per_month: number | null }>("PUT", `/sessions/${id}/analytics/frequency`, { frequency_per_month }),
+
+  // --- М6.1 Реестр требований ---
+  listRequirements: (filters?: { source?: string; q?: string }) => {
+    const params = new URLSearchParams();
+    if (filters) for (const [k, v] of Object.entries(filters)) if (v) params.set(k, v);
+    const qs = params.toString();
+    return req<RequirementRow[]>("GET", `/requirements${qs ? `?${qs}` : ""}`);
+  },
+  createRequirement: (input: { code: string; title: string; source?: string }) => req<RequirementRow>("POST", "/requirements", input),
+  patchRequirement: (id: string, patch: Partial<RequirementRow>) => req<RequirementRow>("PATCH", `/requirements/${id}`, patch),
+  deleteRequirement: (id: string) => req<void>("DELETE", `/requirements/${id}`),
+
+  // --- М6.2 Чек-лист процессного подхода ---
+  listChecklistRules: () => req<ChecklistRuleRow[]>("GET", "/checklist-rules"),
+  setChecklistRuleEnabled: (id: string, enabled: boolean) => req<ChecklistRuleRow>("PATCH", `/checklist-rules/${id}`, { enabled }),
+  getChecklist: (id: string) => req<ChecklistResult>("GET", `/sessions/${id}/checklist`),
 };

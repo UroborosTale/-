@@ -17,8 +17,10 @@ import RegulationPanel from "../components/RegulationPanel";
 import MultiInterviewPanel from "../components/MultiInterviewPanel";
 import VerificationPanel from "../components/VerificationPanel";
 import ReviewPanel from "../components/ReviewPanel";
+import AnalyticsPanel from "../components/AnalyticsPanel";
+import ChecklistPanel from "../components/ChecklistPanel";
 
-type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation" | "multiInterview" | "verification" | "review" | "chat";
+type Tab = "text" | "bpmn" | "idef0" | "model" | "gaps" | "validation" | "export" | "versions" | "raci" | "regulation" | "multiInterview" | "verification" | "review" | "analytics" | "checklist" | "chat";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -84,6 +86,8 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
     { key: "gaps", label: `Пробелы${model ? ` (${model.gaps.filter((g) => g.status === "open").length})` : ""}` },
     { key: "validation", label: `Валидация${session.validation.length ? ` (${session.validation.length})` : ""}` },
     { key: "raci", label: "RACI" },
+    { key: "analytics", label: "Аналитика" },
+    { key: "checklist", label: "Чек-лист" },
     { key: "regulation", label: "Регламент" },
     { key: "multiInterview", label: "Мультиинтервью" },
     { key: "verification", label: "Верификация" },
@@ -213,6 +217,10 @@ export default function WorkspacePage({ sessionId, onBack }: { sessionId: string
             {tab === "validation" && <ValidationPanel issues={session.validation} onSelectElement={(id) => { selectElement(id); setTab("model"); }} />}
             {tab === "raci" && model && <RaciPanel session={session} onChanged={reload} />}
             {tab === "raci" && !model && <p className="muted">Модель ещё не построена.</p>}
+            {tab === "analytics" && model && <AnalyticsPanel session={session} onChanged={reload} />}
+            {tab === "analytics" && !model && <p className="muted">Модель ещё не построена.</p>}
+            {tab === "checklist" && model && <ChecklistPanel session={session} />}
+            {tab === "checklist" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "regulation" && model && <RegulationPanel session={session} />}
             {tab === "regulation" && !model && <p className="muted">Модель ещё не построена.</p>}
             {tab === "multiInterview" && <MultiInterviewPanel session={session} onChanged={reload} />}

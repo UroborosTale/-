@@ -229,6 +229,7 @@ export async function extractModel(
       version: "0.1",
       status: "draft",
       kpi: [],
+      risks: [],
     },
     roles: roles.list,
     systems: systems.list,

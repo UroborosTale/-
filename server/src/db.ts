@@ -138,6 +138,31 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TEXT NOT NULL
 );
 
+-- М2.2: ставки ролей для расчёта трудозатрат и стоимости процесса
+CREATE TABLE IF NOT EXISTS role_rates (
+  role_key TEXT PRIMARY KEY,
+  role_name TEXT NOT NULL,
+  rate REAL NOT NULL,
+  unit TEXT NOT NULL DEFAULT 'per_hour'
+);
+
+-- М6.1: реестр требований (стандарты, НПА, внутренние стандарты)
+CREATE TABLE IF NOT EXISTS requirements (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  title TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'internal',
+  created_at TEXT NOT NULL
+);
+
+-- М6.2: настраиваемые правила чек-листа процессного подхода
+CREATE TABLE IF NOT EXISTS checklist_rules (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1
+);
+
 -- М1.5.2: синхронизация карточки процесса с внешним реестром через коннектор
 -- (генерический вебхук + настраиваемый маппинг полей — без привязки к
 -- конкретному вендору, т.к. в этом окружении нет реальных учётных данных
@@ -177,6 +202,45 @@ try {
   db.exec(`ALTER TABLE sessions ADD COLUMN review_route_json TEXT`);
 } catch {
   // колонка уже существует
+}
+
+/**
+ * ФТ-М6.1.2: предзаполненный каталог требований — только коды и краткие
+ * собственные формулировки ключевых пунктов ISO 9001:2015 §4.4 (СМК и её
+ * процессы), НЕ дословный текст стандарта — по лицензионным ограничениям
+ * (ТЗ, риски, раздел 13: "хранение только кодов и собственных формулировок").
+ */
+const ISO_9001_SEED: { code: string; title: string }[] = [
+  { code: "ISO9001-4.4.1.a", title: "Определены входы, необходимые для процесса, и результаты, которые он должен выдавать" },
+  { code: "ISO9001-4.4.1.b", title: "Определены последовательность и взаимодействие процессов" },
+  { code: "ISO9001-4.4.1.c", title: "Определены критерии и методы, включая измерения, для обеспечения результативности процесса" },
+  { code: "ISO9001-4.4.1.d", title: "Определены и обеспечены ресурсы, необходимые для процесса" },
+  { code: "ISO9001-4.4.1.e", title: "Распределены ответственность и полномочия за процесс" },
+  { code: "ISO9001-4.4.1.f", title: "Рассмотрены риски и возможности, связанные с процессом" },
+  { code: "ISO9001-4.4.1.g", title: "Процесс оценивается, и в него вносятся изменения, необходимые для достижения результатов" },
+  { code: "ISO9001-4.4.1.h", title: "Процесс и система менеджмента качества в целом улучшаются" },
+];
+const seedRequirementsCount = (db.prepare(`SELECT COUNT(*) AS c FROM requirements`).get() as { c: number }).c;
+if (seedRequirementsCount === 0) {
+  const insertReq = db.prepare(`INSERT INTO requirements (id, code, title, source, created_at) VALUES (?, ?, ?, 'ISO9001', ?)`);
+  const now = new Date().toISOString();
+  for (const r of ISO_9001_SEED) insertReq.run(`req_${r.code}`, r.code, r.title, now);
+}
+
+/** ФТ-М6.2.1: базовый чек-лист процессного подхода (по умолчанию все правила включены). */
+const CHECKLIST_SEED: { code: string; label: string }[] = [
+  { code: "owner_assigned", label: "Назначен владелец процесса" },
+  { code: "inputs_outputs_defined", label: "Определены входы и выходы процесса" },
+  { code: "kpi_with_targets", label: "Есть показатели (KPI) с целевыми значениями" },
+  { code: "risks_defined", label: "Определены риски процесса" },
+  { code: "records_defined", label: "Определены записи (документы) процесса" },
+  { code: "control_points_exist", label: "Есть точки контроля (регламентирующие факторы)" },
+  { code: "review_date_set", label: "Назначена дата планового пересмотра" },
+];
+const seedChecklistCount = (db.prepare(`SELECT COUNT(*) AS c FROM checklist_rules`).get() as { c: number }).c;
+if (seedChecklistCount === 0) {
+  const insertRule = db.prepare(`INSERT INTO checklist_rules (id, code, label, enabled) VALUES (?, ?, ?, 1)`);
+  for (const r of CHECKLIST_SEED) insertRule.run(`rule_${r.code}`, r.code, r.label);
 }
 
 export function logAudit(sessionId: string | null, actor: string, action: string, details?: unknown) {

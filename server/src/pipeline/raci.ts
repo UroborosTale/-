@@ -7,8 +7,8 @@ import type { ProcessLogicModel, RaciEntry } from "../types/model.js";
  * «уведомляется»/«информируется» → I. Если ни один маркер A не сработал,
  * по умолчанию исполнитель (R) считается и ответственным (A) за свой шаг.
  */
-const APPROVE_STEMS = ["утвержда", "утверд", "подписыва", "подпис", "принима решение", "одобря", "одобр"];
-const CONSULT_STEMS = ["согласовыва", "согласов", "консультир", "визиру", "советуется"];
+export const APPROVE_STEMS = ["утвержда", "утверд", "подписыва", "подпис", "принима решение", "одобря", "одобр"];
+export const CONSULT_STEMS = ["согласовыва", "согласов", "консультир", "визиру", "советуется"];
 const INFORM_STEMS = ["уведомля", "уведом", "информир", "сообща", "оповещ"];
 
 function findRoleIdInText(text: string, roles: ProcessLogicModel["roles"], exclude?: string | null): string | null {
